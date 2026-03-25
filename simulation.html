@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulateur Jardin d'Agrumes</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232733;
+      --border: #2e3344;
+      --text: #e4e6ed;
+      --text-dim: #8b8fa3;
+      --accent: #6c63ff;
+      --accent-light: #8b83ff;
+      --green: #34d399;
+      --green-dim: #059669;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --gold: #fbbf24;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Header ────────────────────────────── */
+    .header {
+      background: linear-gradient(135deg, #1e2030, #252940);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .header-title {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .header-title .icon { font-size: 24px; }
+    .header-title h1 {
+      font-size: 16px; font-weight: 600; letter-spacing: -0.3px;
+    }
+    .header-title .sub {
+      font-size: 12px; color: var(--text-dim); font-weight: 400;
+    }
+
+    /* ── Scenario Tabs ─────────────────────── */
+    .scenario-tabs {
+      display: flex; gap: 4px; background: var(--bg); border-radius: 10px; padding: 3px;
+    }
+    .scenario-tab {
+      padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 500; color: var(--text-dim);
+      background: transparent; transition: all 0.2s;
+    }
+    .scenario-tab:hover { color: var(--text); background: var(--surface); }
+    .scenario-tab.active { color: #fff; font-weight: 600; }
+    .scenario-tab.active[data-scenario="pessimiste"] { background: var(--red); }
+    .scenario-tab.active[data-scenario="normal"] { background: var(--accent); }
+    .scenario-tab.active[data-scenario="optimiste"] { background: var(--green-dim); }
+    .scenario-desc {
+      font-size: 11px; color: var(--text-dim); text-align: right;
+      min-width: 200px;
+    }
+
+    /* ── Layout ─────────────────────────────── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .panel-left {
+      width: 420px; min-width: 340px; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; background: var(--surface);
+    }
+    .panel-right { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+
+    /* ── Params Bar ─────────────────────────── */
+    .params-bar {
+      display: flex; gap: 12px; padding: 12px 16px;
+      border-bottom: 1px solid var(--border); align-items: center;
+    }
+    .param-group { display: flex; flex-direction: column; gap: 2px; }
+    .param-label { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; }
+    .param-input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 6px 10px; font-size: 13px; width: 100px;
+      text-align: right; outline: none;
+    }
+    .param-input:focus { border-color: var(--accent); }
+    .param-unit { font-size: 11px; color: var(--text-dim); }
+
+    /* ── Search ─────────────────────────────── */
+    .search-box {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+    }
+    .search-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 10px 12px 10px 36px;
+      font-size: 13px; outline: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238b8fa3' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.442.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 12px center;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: #555a6e; }
+
+    /* ── Variety List (dropdown) ────────────── */
+    .variety-dropdown {
+      max-height: 220px; overflow-y: auto; border-bottom: 1px solid var(--border);
+      display: none;
+    }
+    .variety-dropdown.open { display: block; }
+    .variety-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; cursor: pointer; transition: background 0.15s;
+      font-size: 13px; border-bottom: 1px solid var(--bg);
+    }
+    .variety-item:hover { background: var(--surface2); }
+    .variety-item .v-name { font-weight: 500; }
+    .variety-item .v-espece { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
+    .variety-item .v-meta {
+      display: flex; gap: 10px; font-size: 11px; color: var(--text-dim);
+    }
+    .variety-item .v-yield { color: var(--green); }
+    .variety-item .v-price { color: var(--gold); }
+    .variety-item .v-no-price { color: var(--red); font-style: italic; }
+
+    /* ── Mix List ───────────────────────────── */
+    .mix-header {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .mix-header h3 { font-size: 13px; font-weight: 600; }
+    .mix-total-pct { font-size: 12px; font-weight: 600; }
+    .mix-total-pct.over { color: var(--red); }
+    .mix-total-pct.ok { color: var(--green); }
+
+    .mix-list { flex: 1; overflow-y: auto; }
+    .mix-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bg);
+      transition: background 0.15s;
+    }
+    .mix-row:hover { background: var(--surface2); }
+    .mix-row .mix-info { flex: 1; min-width: 0; }
+    .mix-row .mix-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mix-row .mix-espece { font-size: 11px; color: var(--text-dim); }
+    .mix-pct-wrap { display: flex; align-items: center; gap: 6px; }
+    .mix-pct-input {
+      width: 52px; text-align: right; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 5px 6px; font-size: 13px;
+      outline: none;
+    }
+    .mix-pct-input:focus { border-color: var(--accent); }
+    .mix-pct-unit { font-size: 12px; color: var(--text-dim); }
+    .mix-remove {
+      background: none; border: none; color: #555; cursor: pointer;
+      font-size: 18px; padding: 4px 6px; border-radius: 4px; transition: all 0.15s;
+    }
+    .mix-remove:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+    /* ── Results Panel ──────────────────────── */
+    .results-section { padding: 24px; }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px; position: relative; overflow: hidden;
+    }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .kpi-card.main::before { background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
+    .kpi-card.yield::before { background: linear-gradient(90deg, var(--green-dim), var(--green)); }
+    .kpi-card.price::before { background: linear-gradient(90deg, var(--orange), var(--gold)); }
+    .kpi-card.trees::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+    .kpi-label { font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; margin-bottom: 8px; }
+    .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+    .kpi-value .unit { font-size: 14px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
+    .kpi-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    /* ── Breakdown Table ────────────────────── */
+    .breakdown-title {
+      font-size: 14px; font-weight: 600; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .breakdown-table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+    }
+    .breakdown-table th {
+      text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase;
+      color: var(--text-dim); letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .breakdown-table th.right, .breakdown-table td.right { text-align: right; }
+    .breakdown-table td {
+      padding: 8px 10px; border-bottom: 1px solid var(--bg);
+    }
+    .breakdown-table tr:hover td { background: var(--surface); }
+    .breakdown-table .total-row td {
+      font-weight: 700; border-top: 2px solid var(--border);
+      padding-top: 10px;
+    }
+    .bar-cell { width: 120px; }
+    .bar-bg {
+      height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    }
+
+    /* ── Chart ──────────────────────────────── */
+    .chart-section { margin-top: 24px; }
+    .chart-container {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; min-height: 200px;
+    }
+    .donut-wrap {
+      display: flex; align-items: center; gap: 32px; justify-content: center;
+      flex-wrap: wrap;
+    }
+    .donut-svg { width: 200px; height: 200px; }
+    .donut-legend { display: flex; flex-direction: column; gap: 6px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .legend-value { color: var(--text-dim); margin-left: auto; padding-left: 16px; font-variant-numeric: tabular-nums; }
+
+    /* ── Empty State ────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 24px; color: var(--text-dim); text-align: center;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state p { font-size: 13px; max-width: 280px; line-height: 1.5; }
+
+    /* ── Loading ────────────────────────────── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      padding: 80px 24px; flex-direction: column; gap: 16px;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbar ──────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span style="font-size:13px;color:var(--text-dim)">Chargement des données Grist...</span>
+  </div>
+</div>
+
+<script>
+// ─── Palette for chart ───
+const COLORS = [
+  '#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899',
+  '#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308',
+  '#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16',
+  '#f43f5e','#22d3ee'
+];
+
+// ─── App State ───
+let state = {
+  loaded: false,
+  varieties: [],      // {id, NocoDB_Id, Variete, Espece, Rendement_cible_kg, avgPrix}
+  scenarios: [],       // {id, Title, Coeff_rendement, Coeff_prix, Densite_arbres_ha}
+  activeScenario: 'normal',
+  mix: [],             // {NocoDB_Id, pct}
+  totalTrees: 1000,
+  densiteHa: 1000,
+  searchQuery: ''
+};
+
+// ─── Format number ───
+function fmt(n, decimals = 0) {
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(n);
+}
+function fmtEur(n) {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+}
+
+// ─── Scenario helper ───
+function getScenario() {
+  const map = { pessimiste: 0, normal: 1, optimiste: 2 };
+  return state.scenarios[map[state.activeScenario]] || state.scenarios[0];
+}
+
+// ─── Compute results ───
+function compute() {
+  const sc = getScenario();
+  if (!sc) return { rows: [], totalCA: 0, totalSurface: 0, caPerHa: 0, totalTrees: 0, totalYield: 0 };
+
+  const rows = state.mix.map(m => {
+    const v = state.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+    if (!v) return null;
+    const nbArbres = Math.round(state.totalTrees * m.pct / 100);
+    const rendEff = v.Rendement_cible_kg * sc.Coeff_rendement;
+    const prixEff = v.avgPrix * sc.Coeff_prix;
+    const ca = nbArbres * rendEff * prixEff;
+    const surface = nbArbres / (sc.Densite_arbres_ha || state.densiteHa || 1000);
+    return {
+      NocoDB_Id: v.NocoDB_Id,
+      Variete: v.Variete,
+      Espece: v.Espece,
+      pct: m.pct,
+      nbArbres,
+      rendEff,
+      prixEff,
+      yieldTotal: nbArbres * rendEff,
+      ca,
+      surface,
+      caPerHa: surface > 0 ? ca / surface : 0
+    };
+  }).filter(Boolean);
+
+  const totalCA = rows.reduce((s, r) => s + r.ca, 0);
+  const totalSurface = rows.reduce((s, r) => s + r.surface, 0);
+  const totalTrees = rows.reduce((s, r) => s + r.nbArbres, 0);
+  const totalYield = rows.reduce((s, r) => s + r.yieldTotal, 0);
+
+  return {
+    rows,
+    totalCA,
+    totalSurface,
+    caPerHa: totalSurface > 0 ? totalCA / totalSurface : 0,
+    totalTrees,
+    totalYield
+  };
+}
+
+// ─── Render full UI ───
+function render() {
+  const app = document.getElementById('app');
+  const sc = getScenario();
+  const scenarioDescs = {
+    pessimiste: `Coeff. rendement ${((sc && state.activeScenario === 'pessimiste' ? sc.Coeff_rendement : 0.6) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'pessimiste' ? sc.Coeff_prix : 0.5) * 100).toFixed(0)}%`,
+    normal: `Coeff. rendement ${((sc && state.activeScenario === 'normal' ? sc.Coeff_rendement : 0.8) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'normal' ? sc.Coeff_prix : 0.75) * 100).toFixed(0)}%`,
+    optimiste: `Coeff. rendement ${((sc && state.activeScenario === 'optimiste' ? sc.Coeff_rendement : 1) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'optimiste' ? sc.Coeff_prix : 0.9) * 100).toFixed(0)}%`
+  };
+
+  const totalPct = state.mix.reduce((s, m) => s + m.pct, 0);
+  const pctClass = totalPct === 100 ? 'ok' : 'over';
+
+  // Filter varieties for dropdown
+  const q = state.searchQuery.toLowerCase();
+  const inMix = new Set(state.mix.map(m => m.NocoDB_Id));
+  const filtered = q.length >= 2
+    ? state.varieties.filter(v =>
+        !inMix.has(v.NocoDB_Id) &&
+        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q))
+      ).slice(0, 30)
+    : [];
+
+  const res = compute();
+
+  app.innerHTML = `
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <span class="icon">🍋</span>
+        <div>
+          <h1>Simulateur de Jardin <span class="sub">· Agrumes sous Venlo</span></h1>
+        </div>
+      </div>
+      <div class="scenario-tabs">
+        <button class="scenario-tab ${state.activeScenario === 'pessimiste' ? 'active' : ''}" data-scenario="pessimiste" onclick="setScenario('pessimiste')">
+          Pessimiste
+        </button>
+        <button class="scenario-tab ${state.activeScenario === 'normal' ? 'active' : ''}" data-scenario="normal" onclick="setScenario('normal')">
+          Normal
+        </button>
+        <button class="scenario-tab ${state.activeScenario === 'optimiste' ? 'active' : ''}" data-scenario="optimiste" onclick="setScenario('optimiste')">
+          Optimiste
+        </button>
+      </div>
+      <div class="scenario-desc">${scenarioDescs[state.activeScenario]}</div>
+    </div>
+
+    <div class="main">
+      <!-- Left Panel: Mix Builder -->
+      <div class="panel-left">
+        <div class="params-bar">
+          <div class="param-group">
+            <span class="param-label">Nb. arbres total</span>
+            <input type="number" class="param-input" value="${state.totalTrees}" min="1"
+              onchange="state.totalTrees=parseInt(this.value)||1000;render()">
+          </div>
+          <div class="param-group">
+            <span class="param-label">Densit\u00e9</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="param-input" value="${state.densiteHa}" min="1"
+                onchange="state.densiteHa=parseInt(this.value)||1000;render()">
+              <span class="param-unit">arbres/ha</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="search-box">
+          <input type="text" class="search-input" placeholder="Rechercher une vari\u00e9t\u00e9..." value="${state.searchQuery}"
+            oninput="state.searchQuery=this.value;render();this.focus()"
+            id="searchInput">
+        </div>
+
+        <div class="variety-dropdown ${filtered.length > 0 ? 'open' : ''}">
+          ${filtered.map(v => `
+            <div class="variety-item" onclick="addVariety(${v.NocoDB_Id})">
+              <div>
+                <span class="v-name">${v.Variete}</span>
+                <span class="v-espece">${v.Espece}</span>
+              </div>
+              <div class="v-meta">
+                <span class="v-yield">${fmt(v.Rendement_cible_kg)} kg</span>
+                ${v.avgPrix > 0 ? `<span class="v-price">${fmt(v.avgPrix, 2)} \u20ac/kg</span>` : `<span class="v-no-price">pas de prix</span>`}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="mix-header">
+          <h3>Mix vari\u00e9tal (${state.mix.length} vari\u00e9t\u00e9s)</h3>
+          <span class="mix-total-pct ${pctClass}">${fmt(totalPct, 1)}%</span>
+        </div>
+
+        <div class="mix-list">
+          ${state.mix.length === 0 ? `
+            <div class="empty-state">
+              <div class="icon">🌿</div>
+              <p>Recherchez et ajoutez des vari\u00e9t\u00e9s pour composer votre jardin</p>
+            </div>
+          ` : state.mix.map((m, i) => {
+            const v = state.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+            if (!v) return '';
+            return `
+              <div class="mix-row">
+                <div class="mix-info">
+                  <div class="mix-name">${v.Variete}</div>
+                  <div class="mix-espece">${v.Espece} · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix > 0 ? fmt(v.avgPrix, 2) + ' \u20ac/kg' : 'N/A'}</div>
+                </div>
+                <div class="mix-pct-wrap">
+                  <input type="number" class="mix-pct-input" value="${m.pct}" min="0" max="100" step="0.5"
+                    onchange="updatePct(${i}, parseFloat(this.value)||0)">
+                  <span class="mix-pct-unit">%</span>
+                </div>
+                <button class="mix-remove" onclick="removeVariety(${i})">&times;</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Right Panel: Results -->
+      <div class="panel-right">
+        ${state.mix.length === 0 ? `
+          <div class="empty-state" style="flex:1">
+            <div class="icon">📊</div>
+            <p>Les r\u00e9sultats de simulation appara\u00eetront ici une fois votre mix vari\u00e9tal compos\u00e9</p>
+          </div>
+        ` : renderResults(res)}
+      </div>
+    </div>
+  `;
+
+  // Restore focus to search if it was active
+  const si = document.getElementById('searchInput');
+  if (si && document.activeElement !== si && state.searchQuery.length > 0) {
+    si.focus();
+    si.setSelectionRange(si.value.length, si.value.length);
+  }
+}
+
+function renderResults(res) {
+  const sc = getScenario();
+  const maxCA = Math.max(...res.rows.map(r => r.ca), 1);
+
+  return `
+    <div class="results-section">
+      <div class="kpi-grid">
+        <div class="kpi-card main">
+          <div class="kpi-label">Chiffre d'affaires / ha</div>
+          <div class="kpi-value">${fmtEur(res.caPerHa)}<span class="unit">/ ha</span></div>
+          <div class="kpi-sub">Surface totale : ${fmt(res.totalSurface, 3)} ha</div>
+        </div>
+        <div class="kpi-card main">
+          <div class="kpi-label">CA Total</div>
+          <div class="kpi-value">${fmtEur(res.totalCA)}</div>
+          <div class="kpi-sub">Sc\u00e9nario ${state.activeScenario}</div>
+        </div>
+        <div class="kpi-card yield">
+          <div class="kpi-label">Production totale</div>
+          <div class="kpi-value">${fmt(res.totalYield / 1000, 1)}<span class="unit">t</span></div>
+          <div class="kpi-sub">${fmt(res.totalYield)} kg</div>
+        </div>
+        <div class="kpi-card trees">
+          <div class="kpi-label">Arbres allou\u00e9s</div>
+          <div class="kpi-value">${fmt(res.totalTrees)}</div>
+          <div class="kpi-sub">sur ${fmt(state.totalTrees)} total</div>
+        </div>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="breakdown-title">D\u00e9tail par vari\u00e9t\u00e9</div>
+      <table class="breakdown-table">
+        <thead>
+          <tr>
+            <th>Vari\u00e9t\u00e9</th>
+            <th class="right">%</th>
+            <th class="right">Arbres</th>
+            <th class="right">Rdt eff.</th>
+            <th class="right">Prix eff.</th>
+            <th class="right">CA</th>
+            <th>Part du CA</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${res.rows.map(r => `
+            <tr>
+              <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:11px">${r.Espece}</span></td>
+              <td class="right">${fmt(r.pct, 1)}%</td>
+              <td class="right">${fmt(r.nbArbres)}</td>
+              <td class="right">${fmt(r.rendEff, 1)} kg</td>
+              <td class="right">${fmt(r.prixEff, 2)} \u20ac</td>
+              <td class="right" style="font-weight:600">${fmtEur(r.ca)}</td>
+              <td class="bar-cell">
+                <div class="bar-bg">
+                  <div class="bar-fill" style="width:${(r.ca / maxCA * 100).toFixed(1)}%"></div>
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td>Total</td>
+            <td class="right">${fmt(state.mix.reduce((s, m) => s + m.pct, 0), 1)}%</td>
+            <td class="right">${fmt(res.totalTrees)}</td>
+            <td class="right"></td>
+            <td class="right"></td>
+            <td class="right" style="font-size:14px">${fmtEur(res.totalCA)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Donut Chart -->
+      <div class="chart-section">
+        <div class="breakdown-title">R\u00e9partition du chiffre d'affaires</div>
+        <div class="chart-container">
+          <div class="donut-wrap">
+            ${renderDonut(res)}
+            <div class="donut-legend">
+              ${res.rows.map((r, i) => `
+                <div class="legend-item">
+                  <span class="legend-dot" style="background:${COLORS[i % COLORS.length]}"></span>
+                  <span>${r.Variete}</span>
+                  <span class="legend-value">${res.totalCA > 0 ? fmt(r.ca / res.totalCA * 100, 1) : 0}%</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDonut(res) {
+  if (res.totalCA === 0) return '<div style="color:var(--text-dim)">Pas de CA à afficher</div>';
+
+  const cx = 100, cy = 100, R = 80, r = 50;
+  let cumAngle = -Math.PI / 2;
+  let paths = '';
+
+  res.rows.forEach((row, i) => {
+    const frac = row.ca / res.totalCA;
+    if (frac <= 0) return;
+    const angle = frac * Math.PI * 2;
+    const x1o = cx + R * Math.cos(cumAngle);
+    const y1o = cy + R * Math.sin(cumAngle);
+    const x1i = cx + r * Math.cos(cumAngle);
+    const y1i = cy + r * Math.sin(cumAngle);
+    cumAngle += angle;
+    const x2o = cx + R * Math.cos(cumAngle);
+    const y2o = cy + R * Math.sin(cumAngle);
+    const x2i = cx + r * Math.cos(cumAngle);
+    const y2i = cy + r * Math.sin(cumAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    paths += `<path d="M${x1o},${y1o} A${R},${R} 0 ${large} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${large} 0 ${x1i},${y1i} Z" fill="${COLORS[i % COLORS.length]}" opacity="0.85"/>`;
+  });
+
+  return `
+    <svg class="donut-svg" viewBox="0 0 200 200">
+      ${paths}
+      <text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700">${fmtEur(res.totalCA)}</text>
+      <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="10">CA total</text>
+    </svg>
+  `;
+}
+
+// ─── Actions ───
+function setScenario(s) {
+  state.activeScenario = s;
+  render();
+}
+
+function addVariety(nocoId) {
+  if (state.mix.find(m => m.NocoDB_Id === nocoId)) return;
+  // Auto-distribute: if mix is empty start with 100%, else split evenly
+  const n = state.mix.length + 1;
+  const evenPct = Math.round(100 / n * 10) / 10;
+  state.mix.forEach(m => m.pct = evenPct);
+  state.mix.push({ NocoDB_Id: nocoId, pct: evenPct });
+  // Adjust so total = 100
+  const diff = 100 - state.mix.reduce((s, m) => s + m.pct, 0);
+  state.mix[state.mix.length - 1].pct = Math.round((state.mix[state.mix.length - 1].pct + diff) * 10) / 10;
+  state.searchQuery = '';
+  render();
+}
+
+function removeVariety(idx) {
+  state.mix.splice(idx, 1);
+  if (state.mix.length > 0) {
+    const evenPct = Math.round(100 / state.mix.length * 10) / 10;
+    state.mix.forEach(m => m.pct = evenPct);
+    const diff = 100 - state.mix.reduce((s, m) => s + m.pct, 0);
+    state.mix[state.mix.length - 1].pct = Math.round((state.mix[state.mix.length - 1].pct + diff) * 10) / 10;
+  }
+  render();
+}
+
+function updatePct(idx, val) {
+  state.mix[idx].pct = val;
+  render();
+}
+
+// ─── Data Loading ───
+async function loadFromGrist() {
+  try {
+    // Fetch all tables with full access
+    const [varData, prxData, parData] = await Promise.all([
+      grist.docApi.fetchTable('Varietes'),
+      grist.docApi.fetchTable('Prix_Fruits'),
+      grist.docApi.fetchTable('Simulation_Parametres')
+    ]);
+
+    // Parse Varietes (columnar format)
+    const varCount = varData.id.length;
+    const varieties = [];
+    for (let i = 0; i < varCount; i++) {
+      varieties.push({
+        id: varData.id[i],
+        NocoDB_Id: varData.NocoDB_Id[i],
+        Variete: varData.Variete[i],
+        Espece: varData.Espece[i],
+        Rendement_cible_kg: varData.Rendement_cible_kg[i] || 0,
+        avgPrix: 0
+      });
+    }
+
+    // Parse Prix_Fruits and compute average per NocoDB_Id
+    const prxCount = prxData.id.length;
+    const priceMap = {}; // Varietes_id -> [prices]
+    for (let i = 0; i < prxCount; i++) {
+      const vid = prxData.Varietes_id[i];
+      const px = prxData.Prix_kg_EUR[i];
+      if (vid && px) {
+        if (!priceMap[vid]) priceMap[vid] = [];
+        priceMap[vid].push(px);
+      }
+    }
+    varieties.forEach(v => {
+      const prices = priceMap[v.NocoDB_Id];
+      if (prices && prices.length > 0) {
+        v.avgPrix = prices.reduce((a, b) => a + b, 0) / prices.length;
+      }
+    });
+
+    // Parse Simulation_Parametres
+    const parCount = parData.id.length;
+    const scenarios = [];
+    for (let i = 0; i < parCount; i++) {
+      scenarios.push({
+        id: parData.id[i],
+        Title: parData.Title[i],
+        Coeff_rendement: parData.Coeff_rendement[i] || 0.6,
+        Coeff_prix: parData.Coeff_prix[i] || 0.5,
+        Densite_arbres_ha: parData.Densite_arbres_ha[i] || 1000,
+        CA_cible_EUR: parData.CA_cible_EUR[i] || 150000
+      });
+    }
+
+    // Sort scenarios: pessimiste (lowest coeff_rendement) first
+    scenarios.sort((a, b) => a.Coeff_rendement - b.Coeff_rendement);
+
+    state.varieties = varieties.sort((a, b) => a.Variete.localeCompare(b.Variete));
+    state.scenarios = scenarios;
+    state.densiteHa = scenarios[0]?.Densite_arbres_ha || 1000;
+    state.loaded = true;
+
+    render();
+  } catch (err) {
+    console.error('Grist load error:', err);
+    loadStandalone();
+  }
+}
+
+// ─── Standalone mode (outside Grist) ───
+function loadStandalone() {
+  state.scenarios = [
+    { id: 1, Title: 'Pessimiste', Coeff_rendement: 0.6, Coeff_prix: 0.5, Densite_arbres_ha: 1000 },
+    { id: 2, Title: 'Normal', Coeff_rendement: 0.8, Coeff_prix: 0.75, Densite_arbres_ha: 1000 },
+    { id: 3, Title: 'Optimiste', Coeff_rendement: 1.0, Coeff_prix: 0.9, Densite_arbres_ha: 1000 }
+  ];
+  state.varieties = [
+    { NocoDB_Id: 140, Variete: 'Yuzu (exemple)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75 },
+    { NocoDB_Id: 178, Variete: 'Citron caviar (exemple)', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200 },
+    { NocoDB_Id: 205, Variete: 'Bergamote (exemple)', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19 },
+    { NocoDB_Id: 224, Variete: 'Main de Bouddha (exemple)', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5 }
+  ];
+  state.loaded = true;
+  render();
+}
+
+// ─── Init ───
+try {
+  grist.ready({ requiredAccess: 'full' });
+  grist.onRecords(function() {
+    // Re-fetch on data changes
+    loadFromGrist();
+  });
+  loadFromGrist();
+} catch (e) {
+  // Not in Grist — standalone mode
+  loadStandalone();
+}
+</script>
+</body>
+</html>
