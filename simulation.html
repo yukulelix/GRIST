@@ -643,18 +643,42 @@ async function saveSimulation() {
     const sc = getScenario();
     const paramNocId = S.scenarios.findIndex(s=>s===sc) + 1;
     const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
-    const maxJardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
+    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
+
+    // Check if a simulation with this name already exists
+    let jardinNoco = null;
+    let jardinGristId = null;
+    for (let i=0;i<jardinsData.id.length;i++) {
+      if (jardinsData.Title[i] === name) {
+        jardinNoco = jardinsData.NocoDB_Id[i];
+        jardinGristId = jardinsData.id[i];
+        break;
+      }
+    }
 
     const tJardins = grist.getTable('Simulation_Jardins');
-    const jardinIds = await tJardins.create([{
-      fields: { NocoDB_Id: maxJardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
-    }]);
-
-    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
-    let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
-
-    const totalParts = getTotalParts();
     const tMix = grist.getTable('Simulation_Mix_Varietal');
+
+    if (jardinGristId) {
+      // ─── Overwrite existing: delete old mix rows, update jardin ───
+      const oldMixIds = [];
+      for (let i=0;i<mixData.id.length;i++) {
+        if (mixData.Jardins_id[i] === jardinNoco) oldMixIds.push(mixData.id[i]);
+      }
+      if (oldMixIds.length) await tMix.destroy(oldMixIds);
+      await tJardins.update([{id: jardinGristId, fields: {Parametres_id: paramNocId}}]);
+    } else {
+      // ─── New simulation ───
+      jardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
+      const ids = await tJardins.create([{
+        fields: { NocoDB_Id: jardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
+      }]);
+      jardinGristId = ids[0];
+    }
+
+    // ─── Create new mix rows ───
+    let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
+    const totalParts = getTotalParts();
     const mixRows = S.mix.map((m,i) => {
       const v = S.varieties.find(x=>x.NocoDB_Id===m.NocoDB_Id);
       const d = getDensity(v);
@@ -666,7 +690,7 @@ async function saveSimulation() {
           NocoDB_Id: maxMixNoco,
           Title: name + '-' + (i+1),
           Nb_arbres: nb,
-          Jardins_id: maxJardinNoco,
+          Jardins_id: jardinNoco,
           Varietes_id: m.NocoDB_Id
         }
       };
@@ -675,7 +699,7 @@ async function saveSimulation() {
 
     await loadJardins();
     S.saveName = name;
-    S.loadedJardinId = jardinIds[0];
+    S.loadedJardinId = jardinGristId;
     render();
     alert('Simulation "' + name + '" sauvegardée !');
   } catch(e) { console.error('Save error:',e); alert('Erreur: '+e.message); }
