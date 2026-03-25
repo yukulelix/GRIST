@@ -7,747 +7,624 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #232733;
-      --border: #2e3344;
-      --text: #e4e6ed;
-      --text-dim: #8b8fa3;
-      --accent: #6c63ff;
-      --accent-light: #8b83ff;
-      --green: #34d399;
-      --green-dim: #059669;
-      --orange: #f59e0b;
-      --red: #ef4444;
-      --gold: #fbbf24;
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+      --border: #2e3344; --text: #e4e6ed; --text-dim: #8b8fa3;
+      --accent: #6c63ff; --accent-light: #8b83ff;
+      --green: #34d399; --green-dim: #059669;
+      --orange: #f59e0b; --red: #ef4444; --gold: #fbbf24;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    .app { display: flex; flex-direction: column; min-height: 100vh; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .app { display:flex; flex-direction:column; height:100vh; }
 
-    /* ── Header ────────────────────────────── */
+    /* ── Header ─────────────────────── */
     .header {
-      background: linear-gradient(135deg, #1e2030, #252940);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
+      background:linear-gradient(135deg,#1e2030,#252940);
+      border-bottom:1px solid var(--border);
+      padding:10px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex-shrink:0;
     }
-    .header-title {
-      display: flex; align-items: center; gap: 10px;
-    }
-    .header-title .icon { font-size: 24px; }
-    .header-title h1 {
-      font-size: 16px; font-weight: 600; letter-spacing: -0.3px;
-    }
-    .header-title .sub {
-      font-size: 12px; color: var(--text-dim); font-weight: 400;
-    }
-
-    /* ── Scenario Tabs ─────────────────────── */
-    .scenario-tabs {
-      display: flex; gap: 4px; background: var(--bg); border-radius: 10px; padding: 3px;
-    }
+    .header-title { display:flex; align-items:center; gap:8px; }
+    .header-title .icon { font-size:20px; }
+    .header-title h1 { font-size:15px; font-weight:600; white-space:nowrap; }
+    .header-title .sub { font-size:11px; color:var(--text-dim); }
+    .scenario-tabs { display:flex; gap:3px; background:var(--bg); border-radius:8px; padding:2px; margin-left:auto; }
     .scenario-tab {
-      padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
-      font-size: 13px; font-weight: 500; color: var(--text-dim);
-      background: transparent; transition: all 0.2s;
+      padding:6px 14px; border-radius:6px; border:none; cursor:pointer;
+      font-size:12px; font-weight:500; color:var(--text-dim); background:transparent; transition:all .2s;
     }
-    .scenario-tab:hover { color: var(--text); background: var(--surface); }
-    .scenario-tab.active { color: #fff; font-weight: 600; }
-    .scenario-tab.active[data-scenario="pessimiste"] { background: var(--red); }
-    .scenario-tab.active[data-scenario="normal"] { background: var(--accent); }
-    .scenario-tab.active[data-scenario="optimiste"] { background: var(--green-dim); }
-    .scenario-desc {
-      font-size: 11px; color: var(--text-dim); text-align: right;
-      min-width: 200px;
+    .scenario-tab:hover { color:var(--text); background:var(--surface); }
+    .scenario-tab.active { color:#fff; font-weight:600; }
+    .scenario-tab.active[data-scenario="pessimiste"] { background:var(--red); }
+    .scenario-tab.active[data-scenario="normal"] { background:var(--accent); }
+    .scenario-tab.active[data-scenario="optimiste"] { background:var(--green-dim); }
+    .coeff-info { font-size:10px; color:var(--text-dim); white-space:nowrap; }
+
+    /* ── Save/Load bar ──────────────── */
+    .save-bar {
+      display:flex; gap:8px; padding:6px 20px; background:var(--surface2);
+      border-bottom:1px solid var(--border); align-items:center; flex-shrink:0; flex-wrap:wrap;
+    }
+    .save-bar select, .save-bar button {
+      font-size:11px; padding:4px 10px; border-radius:5px; border:1px solid var(--border);
+      background:var(--bg); color:var(--text); cursor:pointer; outline:none;
+    }
+    .save-bar button:hover { border-color:var(--accent); color:var(--accent); }
+    .save-bar button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .save-bar button.primary:hover { background:var(--accent-light); }
+    .save-bar .sep { width:1px; height:20px; background:var(--border); }
+    .save-bar input {
+      font-size:11px; padding:4px 8px; border-radius:5px; border:1px solid var(--border);
+      background:var(--bg); color:var(--text); outline:none; width:160px;
     }
 
-    /* ── Layout ─────────────────────────────── */
-    .main { display: flex; flex: 1; overflow: hidden; }
+    /* ── Layout ──────────────────────── */
+    .main { display:flex; flex:1; overflow:hidden; min-height:0; }
     .panel-left {
-      width: 420px; min-width: 340px; border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; background: var(--surface);
+      width:380px; min-width:300px; max-width:40vw; border-right:1px solid var(--border);
+      display:flex; flex-direction:column; background:var(--surface); flex-shrink:0;
     }
-    .panel-right { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+    .panel-right { flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0; }
 
-    /* ── Params Bar ─────────────────────────── */
-    .params-bar {
-      display: flex; gap: 12px; padding: 12px 16px;
-      border-bottom: 1px solid var(--border); align-items: center;
-    }
-    .param-group { display: flex; flex-direction: column; gap: 2px; }
-    .param-label { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; }
-    .param-input {
-      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-      color: var(--text); padding: 6px 10px; font-size: 13px; width: 100px;
-      text-align: right; outline: none;
-    }
-    .param-input:focus { border-color: var(--accent); }
-    .param-unit { font-size: 11px; color: var(--text-dim); }
-
-    /* ── Search ─────────────────────────────── */
-    .search-box {
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
-    }
+    /* ── Search ──────────────────────── */
+    .search-box { padding:10px 14px; border-bottom:1px solid var(--border); }
     .search-input {
-      width: 100%; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text); padding: 10px 12px 10px 36px;
-      font-size: 13px; outline: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238b8fa3' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.442.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: 12px center;
+      width:100%; background:var(--bg); border:1px solid var(--border); border-radius:7px;
+      color:var(--text); padding:8px 10px 8px 32px; font-size:12px; outline:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%238b8fa3' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.442.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:10px center;
     }
-    .search-input:focus { border-color: var(--accent); }
-    .search-input::placeholder { color: #555a6e; }
+    .search-input:focus { border-color:var(--accent); }
+    .search-input::placeholder { color:#555a6e; }
 
-    /* ── Variety List (dropdown) ────────────── */
-    .variety-dropdown {
-      max-height: 220px; overflow-y: auto; border-bottom: 1px solid var(--border);
-      display: none;
-    }
-    .variety-dropdown.open { display: block; }
+    /* ── Dropdown ────────────────────── */
+    .variety-dropdown { max-height:200px; overflow-y:auto; border-bottom:1px solid var(--border); display:none; }
+    .variety-dropdown.open { display:block; }
     .variety-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px; cursor: pointer; transition: background 0.15s;
-      font-size: 13px; border-bottom: 1px solid var(--bg);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:6px 14px; cursor:pointer; font-size:12px; border-bottom:1px solid var(--bg); transition:background .15s;
     }
-    .variety-item:hover { background: var(--surface2); }
-    .variety-item .v-name { font-weight: 500; }
-    .variety-item .v-espece { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
-    .variety-item .v-meta {
-      display: flex; gap: 10px; font-size: 11px; color: var(--text-dim);
-    }
-    .variety-item .v-yield { color: var(--green); }
-    .variety-item .v-price { color: var(--gold); }
-    .variety-item .v-no-price { color: var(--red); font-style: italic; }
+    .variety-item:hover { background:var(--surface2); }
+    .variety-item .v-name { font-weight:500; }
+    .variety-item .v-espece { color:var(--text-dim); font-size:10px; margin-left:5px; }
+    .variety-item .v-meta { display:flex; gap:8px; font-size:10px; color:var(--text-dim); flex-shrink:0; }
+    .variety-item .v-yield { color:var(--green); }
+    .variety-item .v-price { color:var(--gold); }
+    .variety-item .v-no-price { color:var(--red); font-style:italic; }
+    .variety-item .v-density { color:var(--accent-light); }
 
-    /* ── Mix List ───────────────────────────── */
+    /* ── Mix list ────────────────────── */
     .mix-header {
-      padding: 10px 16px; border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
+      padding:8px 14px; border-bottom:1px solid var(--border);
+      display:flex; justify-content:space-between; align-items:center;
     }
-    .mix-header h3 { font-size: 13px; font-weight: 600; }
-    .mix-total-pct { font-size: 12px; font-weight: 600; }
-    .mix-total-pct.over { color: var(--red); }
-    .mix-total-pct.ok { color: var(--green); }
-
-    .mix-list { flex: 1; overflow-y: auto; }
+    .mix-header h3 { font-size:12px; font-weight:600; }
+    .mix-total-pct { font-size:12px; font-weight:600; }
+    .mix-total-pct.over { color:var(--red); }
+    .mix-total-pct.ok { color:var(--green); }
+    .mix-list { flex:1; overflow-y:auto; }
     .mix-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px; border-bottom: 1px solid var(--bg);
-      transition: background 0.15s;
+      display:flex; align-items:center; gap:6px; padding:8px 14px;
+      border-bottom:1px solid var(--bg); transition:background .15s;
     }
-    .mix-row:hover { background: var(--surface2); }
-    .mix-row .mix-info { flex: 1; min-width: 0; }
-    .mix-row .mix-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mix-row .mix-espece { font-size: 11px; color: var(--text-dim); }
-    .mix-pct-wrap { display: flex; align-items: center; gap: 6px; }
+    .mix-row:hover { background:var(--surface2); }
+    .mix-row .mix-info { flex:1; min-width:0; }
+    .mix-row .mix-name { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mix-row .mix-espece { font-size:10px; color:var(--text-dim); }
+    .mix-controls { display:flex; align-items:center; gap:4px; flex-shrink:0; }
     .mix-pct-input {
-      width: 52px; text-align: right; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 6px; color: var(--text); padding: 5px 6px; font-size: 13px;
-      outline: none;
+      width:44px; text-align:right; background:var(--bg); border:1px solid var(--border);
+      border-radius:5px; color:var(--text); padding:4px 5px; font-size:12px; outline:none;
     }
-    .mix-pct-input:focus { border-color: var(--accent); }
-    .mix-pct-unit { font-size: 12px; color: var(--text-dim); }
+    .mix-pct-input:focus { border-color:var(--accent); }
+    .mix-pct-unit { font-size:11px; color:var(--text-dim); }
+    .mix-trees { font-size:10px; color:var(--accent-light); min-width:50px; text-align:right; }
     .mix-remove {
-      background: none; border: none; color: #555; cursor: pointer;
-      font-size: 18px; padding: 4px 6px; border-radius: 4px; transition: all 0.15s;
+      background:none; border:none; color:#555; cursor:pointer;
+      font-size:16px; padding:2px 4px; border-radius:3px; transition:all .15s;
     }
-    .mix-remove:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+    .mix-remove:hover { color:var(--red); background:rgba(239,68,68,.1); }
 
-    /* ── Results Panel ──────────────────────── */
-    .results-section { padding: 24px; }
-    .kpi-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px; margin-bottom: 28px;
-    }
-    .kpi-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-      padding: 18px; position: relative; overflow: hidden;
-    }
-    .kpi-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    }
-    .kpi-card.main::before { background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
-    .kpi-card.yield::before { background: linear-gradient(90deg, var(--green-dim), var(--green)); }
-    .kpi-card.price::before { background: linear-gradient(90deg, var(--orange), var(--gold)); }
-    .kpi-card.trees::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-    .kpi-label { font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
-    .kpi-value .unit { font-size: 14px; font-weight: 400; color: var(--text-dim); margin-left: 4px; }
-    .kpi-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
-
-    /* ── Breakdown Table ────────────────────── */
-    .breakdown-title {
-      font-size: 14px; font-weight: 600; margin-bottom: 12px;
-      padding-bottom: 8px; border-bottom: 1px solid var(--border);
-    }
-    .breakdown-table {
-      width: 100%; border-collapse: collapse; font-size: 12px;
-    }
-    .breakdown-table th {
-      text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase;
-      color: var(--text-dim); letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
-      font-weight: 600;
-    }
-    .breakdown-table th.right, .breakdown-table td.right { text-align: right; }
-    .breakdown-table td {
-      padding: 8px 10px; border-bottom: 1px solid var(--bg);
-    }
-    .breakdown-table tr:hover td { background: var(--surface); }
-    .breakdown-table .total-row td {
-      font-weight: 700; border-top: 2px solid var(--border);
-      padding-top: 10px;
-    }
-    .bar-cell { width: 120px; }
-    .bar-bg {
-      height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%; border-radius: 4px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-light));
-    }
-
-    /* ── Chart ──────────────────────────────── */
-    .chart-section { margin-top: 24px; }
-    .chart-container {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-      padding: 20px; min-height: 200px;
-    }
-    .donut-wrap {
-      display: flex; align-items: center; gap: 32px; justify-content: center;
-      flex-wrap: wrap;
-    }
-    .donut-svg { width: 200px; height: 200px; }
-    .donut-legend { display: flex; flex-direction: column; gap: 6px; }
-    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
-    .legend-value { color: var(--text-dim); margin-left: auto; padding-left: 16px; font-variant-numeric: tabular-nums; }
-
-    /* ── Empty State ────────────────────────── */
+    /* ── Empty state ─────────────────── */
     .empty-state {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 60px 24px; color: var(--text-dim); text-align: center;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:40px 20px; color:var(--text-dim); text-align:center;
     }
-    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
-    .empty-state p { font-size: 13px; max-width: 280px; line-height: 1.5; }
+    .empty-state .icon { font-size:36px; margin-bottom:12px; opacity:.4; }
+    .empty-state p { font-size:12px; max-width:240px; line-height:1.4; }
 
-    /* ── Loading ────────────────────────────── */
-    .loading {
-      display: flex; align-items: center; justify-content: center;
-      padding: 80px 24px; flex-direction: column; gap: 16px;
+    /* ── Results ──────────────────────── */
+    .results-section { padding:20px; }
+    .kpi-grid { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .kpi-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px; position:relative; overflow:hidden; flex:1; min-width:140px;
     }
-    .spinner {
-      width: 32px; height: 32px; border: 3px solid var(--border);
-      border-top-color: var(--accent); border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .kpi-card.ca::before { background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
+    .kpi-card.yield::before { background:linear-gradient(90deg,var(--green-dim),var(--green)); }
+    .kpi-card.price::before { background:linear-gradient(90deg,var(--orange),var(--gold)); }
+    .kpi-card.trees::before { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+    .kpi-label { font-size:10px; text-transform:uppercase; color:var(--text-dim); letter-spacing:.5px; margin-bottom:6px; }
+    .kpi-value { font-size:22px; font-weight:700; letter-spacing:-.5px; }
+    .kpi-value .unit { font-size:12px; font-weight:400; color:var(--text-dim); margin-left:3px; }
+    .kpi-sub { font-size:10px; color:var(--text-dim); margin-top:3px; }
 
-    /* ── Scrollbar ──────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #444; }
+    /* ── Table ────────────────────────── */
+    .breakdown-title { font-size:13px; font-weight:600; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+    .breakdown-table { width:100%; border-collapse:collapse; font-size:11px; }
+    .breakdown-table th {
+      text-align:left; padding:6px 8px; font-size:9px; text-transform:uppercase;
+      color:var(--text-dim); letter-spacing:.5px; border-bottom:1px solid var(--border); font-weight:600;
+    }
+    .breakdown-table th.r, .breakdown-table td.r { text-align:right; }
+    .breakdown-table td { padding:6px 8px; border-bottom:1px solid var(--bg); }
+    .breakdown-table tr:hover td { background:var(--surface); }
+    .breakdown-table .total-row td { font-weight:700; border-top:2px solid var(--border); padding-top:8px; }
+    .bar-cell { width:100px; }
+    .bar-bg { height:7px; border-radius:3px; background:var(--bg); overflow:hidden; }
+    .bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
+
+    /* ── Donut ────────────────────────── */
+    .chart-section { margin-top:20px; }
+    .chart-container { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
+    .donut-wrap { display:flex; align-items:center; gap:24px; justify-content:center; flex-wrap:wrap; }
+    .donut-svg { width:160px; height:160px; }
+    .donut-legend { display:flex; flex-direction:column; gap:4px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; }
+    .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:12px; font-variant-numeric:tabular-nums; }
+
+    /* ── Scrollbar ────────────────────── */
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    /* ── Loading ──────────────────────── */
+    .loading { display:flex; align-items:center; justify-content:center; padding:60px 20px; flex-direction:column; gap:12px; }
+    .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
   </style>
 </head>
 <body>
 <div class="app" id="app">
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <span style="font-size:13px;color:var(--text-dim)">Chargement des données Grist...</span>
-  </div>
+  <div class="loading"><div class="spinner"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div>
 </div>
-
 <script>
-// ─── Palette for chart ───
-const COLORS = [
-  '#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899',
-  '#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308',
-  '#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16',
-  '#f43f5e','#22d3ee'
-];
+const COLORS = ['#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308','#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16'];
 
-// ─── App State ───
-let state = {
-  loaded: false,
-  varieties: [],      // {id, NocoDB_Id, Variete, Espece, Rendement_cible_kg, avgPrix}
-  scenarios: [],       // {id, Title, Coeff_rendement, Coeff_prix, Densite_arbres_ha}
-  activeScenario: 'normal',
-  mix: [],             // {NocoDB_Id, pct}
-  totalTrees: 1000,
-  densiteHa: 1000,
-  searchQuery: ''
+// ─── Vigor → Density mapping ───
+const VIGOR_DENSITY = {
+  'Très faible': 1100, 'Faible': 830, 'Moyenne-': 625,
+  'Moyenne': 500, 'Moyenne+': 500, 'Forte': 400, 'Très forte': 200
+};
+// Default density by Espece (best guess)
+const ESPECE_DENSITY = {
+  'Satsuma':830,'Mandarine':625,'Mandarine/Clémentine':625,'Clémentine':625,'Clementine':625,
+  'Tangor':625,'Tangelo':500,'Orange':500,'Citron':500,'Citron vert':500,'Lime':500,
+  'Bergamote':500,'Cédrat':500,'Main de Bouddha':500,'Combava':500,
+  'Yuzu':400,'Kumquat':830,'Citron caviar':830,'Microcitrus':830,
+  'Pomelo':200,'Pamplemousse':200,'Bigarade':400,'Chinotto':625,
+  'Calamondin':830,'Limequat':625,'Citrange':400,'Poncirus':400
+};
+const DEFAULT_DENSITY = 500;
+
+// ─── State ───
+let S = {
+  varieties: [], scenarios: [], jardins: [], mixRecords: [],
+  activeScenario: 'normal', mix: [], searchQuery: '',
+  loadedJardinId: null, saveName: ''
 };
 
-// ─── Format number ───
-function fmt(n, decimals = 0) {
-  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(n);
-}
-function fmtEur(n) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-}
+function fmt(n, d=0) { return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n); }
+function fmtEur(n) { return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n); }
 
-// ─── Scenario helper ───
 function getScenario() {
-  const map = { pessimiste: 0, normal: 1, optimiste: 2 };
-  return state.scenarios[map[state.activeScenario]] || state.scenarios[0];
+  const map = {pessimiste:0, normal:1, optimiste:2};
+  return S.scenarios[map[S.activeScenario]] || S.scenarios[0] || {Coeff_rendement:.8,Coeff_prix:.75};
 }
 
-// ─── Compute results ───
+function getDensity(v) {
+  // If variety has its own density, use it
+  if (v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
+  return ESPECE_DENSITY[v.Espece] || DEFAULT_DENSITY;
+}
+
+// ─── Compute ───
 function compute() {
   const sc = getScenario();
-  if (!sc) return { rows: [], totalCA: 0, totalSurface: 0, caPerHa: 0, totalTrees: 0, totalYield: 0 };
-
-  const rows = state.mix.map(m => {
-    const v = state.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+  const rows = S.mix.map(m => {
+    const v = S.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
     if (!v) return null;
-    const nbArbres = Math.round(state.totalTrees * m.pct / 100);
+    const density = getDensity(v);
+    const surfaceFrac = m.pct / 100; // fraction of 1 ha
+    const nbArbres = Math.round(density * surfaceFrac);
     const rendEff = v.Rendement_cible_kg * sc.Coeff_rendement;
     const prixEff = v.avgPrix * sc.Coeff_prix;
-    const ca = nbArbres * rendEff * prixEff;
-    const surface = nbArbres / (sc.Densite_arbres_ha || state.densiteHa || 1000);
+    const yieldKg = nbArbres * rendEff;
+    const ca = yieldKg * prixEff;
     return {
-      NocoDB_Id: v.NocoDB_Id,
-      Variete: v.Variete,
-      Espece: v.Espece,
-      pct: m.pct,
-      nbArbres,
-      rendEff,
-      prixEff,
-      yieldTotal: nbArbres * rendEff,
-      ca,
-      surface,
-      caPerHa: surface > 0 ? ca / surface : 0
+      NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
+      pct: m.pct, density, nbArbres, rendEff, prixEff, yieldKg, ca,
+      caPerTree: nbArbres > 0 ? ca / nbArbres : 0
     };
   }).filter(Boolean);
-
-  const totalCA = rows.reduce((s, r) => s + r.ca, 0);
-  const totalSurface = rows.reduce((s, r) => s + r.surface, 0);
-  const totalTrees = rows.reduce((s, r) => s + r.nbArbres, 0);
-  const totalYield = rows.reduce((s, r) => s + r.yieldTotal, 0);
-
-  return {
-    rows,
-    totalCA,
-    totalSurface,
-    caPerHa: totalSurface > 0 ? totalCA / totalSurface : 0,
-    totalTrees,
-    totalYield
-  };
+  const totalCA = rows.reduce((s,r) => s+r.ca, 0);
+  const totalYield = rows.reduce((s,r) => s+r.yieldKg, 0);
+  const totalTrees = rows.reduce((s,r) => s+r.nbArbres, 0);
+  const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
+  return { rows, totalCA, totalYield, totalTrees, avgPriceKg };
 }
 
-// ─── Render full UI ───
+// ─── Render ───
 function render() {
   const app = document.getElementById('app');
   const sc = getScenario();
-  const scenarioDescs = {
-    pessimiste: `Coeff. rendement ${((sc && state.activeScenario === 'pessimiste' ? sc.Coeff_rendement : 0.6) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'pessimiste' ? sc.Coeff_prix : 0.5) * 100).toFixed(0)}%`,
-    normal: `Coeff. rendement ${((sc && state.activeScenario === 'normal' ? sc.Coeff_rendement : 0.8) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'normal' ? sc.Coeff_prix : 0.75) * 100).toFixed(0)}%`,
-    optimiste: `Coeff. rendement ${((sc && state.activeScenario === 'optimiste' ? sc.Coeff_rendement : 1) * 100).toFixed(0)}% · Coeff. prix ${((sc && state.activeScenario === 'optimiste' ? sc.Coeff_prix : 0.9) * 100).toFixed(0)}%`
-  };
+  const totalPct = S.mix.reduce((s,m) => s+m.pct, 0);
+  const pctOk = Math.abs(totalPct - 100) < 0.05;
 
-  const totalPct = state.mix.reduce((s, m) => s + m.pct, 0);
-  const pctClass = totalPct === 100 ? 'ok' : 'over';
-
-  // Filter varieties for dropdown
-  const q = state.searchQuery.toLowerCase();
-  const inMix = new Set(state.mix.map(m => m.NocoDB_Id));
+  const q = S.searchQuery.toLowerCase();
+  const inMix = new Set(S.mix.map(m => m.NocoDB_Id));
   const filtered = q.length >= 2
-    ? state.varieties.filter(v =>
-        !inMix.has(v.NocoDB_Id) &&
+    ? S.varieties.filter(v => !inMix.has(v.NocoDB_Id) &&
         (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q))
-      ).slice(0, 30)
+      ).slice(0, 25)
     : [];
 
   const res = compute();
 
   app.innerHTML = `
-    <!-- Header -->
     <div class="header">
       <div class="header-title">
         <span class="icon">🍋</span>
-        <div>
-          <h1>Simulateur de Jardin <span class="sub">· Agrumes sous Venlo</span></h1>
-        </div>
+        <h1>Simulateur <span class="sub">· 1 hectare sous Venlo</span></h1>
       </div>
       <div class="scenario-tabs">
-        <button class="scenario-tab ${state.activeScenario === 'pessimiste' ? 'active' : ''}" data-scenario="pessimiste" onclick="setScenario('pessimiste')">
-          Pessimiste
-        </button>
-        <button class="scenario-tab ${state.activeScenario === 'normal' ? 'active' : ''}" data-scenario="normal" onclick="setScenario('normal')">
-          Normal
-        </button>
-        <button class="scenario-tab ${state.activeScenario === 'optimiste' ? 'active' : ''}" data-scenario="optimiste" onclick="setScenario('optimiste')">
-          Optimiste
-        </button>
+        ${['pessimiste','normal','optimiste'].map(s => `
+          <button class="scenario-tab ${S.activeScenario===s?'active':''}" data-scenario="${s}" onclick="setScenario('${s}')">${s.charAt(0).toUpperCase()+s.slice(1)}</button>
+        `).join('')}
       </div>
-      <div class="scenario-desc">${scenarioDescs[state.activeScenario]}</div>
+      <span class="coeff-info">Rdt ${(sc.Coeff_rendement*100).toFixed(0)}% · Prix ${(sc.Coeff_prix*100).toFixed(0)}%</span>
+    </div>
+
+    <div class="save-bar">
+      <select id="loadSelect" onchange="onLoadSelect(this.value)">
+        <option value="">— Charger une simulation —</option>
+        ${S.jardins.map(j => `<option value="${j.id}" ${S.loadedJardinId===j.id?'selected':''}>${j.Title} (${j.Strategie||''})</option>`).join('')}
+      </select>
+      <button onclick="loadSimulation()">Charger</button>
+      <span class="sep"></span>
+      <input type="text" placeholder="Nom de la simulation..." id="saveNameInput" value="${S.saveName}" oninput="S.saveName=this.value">
+      <button class="primary" onclick="saveSimulation()">💾 Sauvegarder</button>
     </div>
 
     <div class="main">
-      <!-- Left Panel: Mix Builder -->
       <div class="panel-left">
-        <div class="params-bar">
-          <div class="param-group">
-            <span class="param-label">Nb. arbres total</span>
-            <input type="number" class="param-input" value="${state.totalTrees}" min="1"
-              onchange="state.totalTrees=parseInt(this.value)||1000;render()">
-          </div>
-          <div class="param-group">
-            <span class="param-label">Densit\u00e9</span>
-            <div style="display:flex;align-items:center;gap:4px">
-              <input type="number" class="param-input" value="${state.densiteHa}" min="1"
-                onchange="state.densiteHa=parseInt(this.value)||1000;render()">
-              <span class="param-unit">arbres/ha</span>
-            </div>
-          </div>
-        </div>
-
         <div class="search-box">
-          <input type="text" class="search-input" placeholder="Rechercher une vari\u00e9t\u00e9..." value="${state.searchQuery}"
-            oninput="state.searchQuery=this.value;render();this.focus()"
-            id="searchInput">
+          <input type="text" class="search-input" placeholder="Rechercher une variété..." value="${S.searchQuery}"
+            oninput="S.searchQuery=this.value;render();this.focus()" id="searchInput">
         </div>
-
-        <div class="variety-dropdown ${filtered.length > 0 ? 'open' : ''}">
-          ${filtered.map(v => `
-            <div class="variety-item" onclick="addVariety(${v.NocoDB_Id})">
-              <div>
-                <span class="v-name">${v.Variete}</span>
-                <span class="v-espece">${v.Espece}</span>
-              </div>
+        <div class="variety-dropdown ${filtered.length>0?'open':''}">
+          ${filtered.map(v => {
+            const d = getDensity(v);
+            return `<div class="variety-item" onclick="addVariety(${v.NocoDB_Id})">
+              <div><span class="v-name">${v.Variete}</span><span class="v-espece">${v.Espece}</span></div>
               <div class="v-meta">
+                <span class="v-density">${d}/ha</span>
                 <span class="v-yield">${fmt(v.Rendement_cible_kg)} kg</span>
-                ${v.avgPrix > 0 ? `<span class="v-price">${fmt(v.avgPrix, 2)} \u20ac/kg</span>` : `<span class="v-no-price">pas de prix</span>`}
+                ${v.avgPrix>0?`<span class="v-price">${fmt(v.avgPrix,2)} €/kg</span>`:`<span class="v-no-price">∅ prix</span>`}
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
 
         <div class="mix-header">
-          <h3>Mix vari\u00e9tal (${state.mix.length} vari\u00e9t\u00e9s)</h3>
-          <span class="mix-total-pct ${pctClass}">${fmt(totalPct, 1)}%</span>
+          <h3>Mix variétal · ${S.mix.length} var.</h3>
+          <span class="mix-total-pct ${pctOk?'ok':'over'}">${fmt(totalPct,1)}% ${pctOk?'✓':'⚠'}</span>
         </div>
 
         <div class="mix-list">
-          ${state.mix.length === 0 ? `
-            <div class="empty-state">
-              <div class="icon">🌿</div>
-              <p>Recherchez et ajoutez des vari\u00e9t\u00e9s pour composer votre jardin</p>
-            </div>
-          ` : state.mix.map((m, i) => {
-            const v = state.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
-            if (!v) return '';
-            return `
-              <div class="mix-row">
+          ${S.mix.length===0 ? `<div class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>` :
+            S.mix.map((m,i) => {
+              const v = S.varieties.find(x => x.NocoDB_Id===m.NocoDB_Id);
+              if (!v) return '';
+              const d = getDensity(v);
+              const nb = Math.round(d * m.pct / 100);
+              return `<div class="mix-row">
                 <div class="mix-info">
                   <div class="mix-name">${v.Variete}</div>
-                  <div class="mix-espece">${v.Espece} · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix > 0 ? fmt(v.avgPrix, 2) + ' \u20ac/kg' : 'N/A'}</div>
+                  <div class="mix-espece">${v.Espece} · ${d}/ha · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
                 </div>
-                <div class="mix-pct-wrap">
+                <div class="mix-controls">
+                  <span class="mix-trees">${nb} arb.</span>
                   <input type="number" class="mix-pct-input" value="${m.pct}" min="0" max="100" step="0.5"
-                    onchange="updatePct(${i}, parseFloat(this.value)||0)">
+                    onchange="updatePct(${i},parseFloat(this.value)||0)">
                   <span class="mix-pct-unit">%</span>
+                  <button class="mix-remove" onclick="removeVariety(${i})">&times;</button>
                 </div>
-                <button class="mix-remove" onclick="removeVariety(${i})">&times;</button>
-              </div>
-            `;
-          }).join('')}
+              </div>`;
+            }).join('')}
         </div>
       </div>
 
-      <!-- Right Panel: Results -->
       <div class="panel-right">
-        ${state.mix.length === 0 ? `
-          <div class="empty-state" style="flex:1">
-            <div class="icon">📊</div>
-            <p>Les r\u00e9sultats de simulation appara\u00eetront ici une fois votre mix vari\u00e9tal compos\u00e9</p>
-          </div>
-        ` : renderResults(res)}
+        ${S.mix.length===0 ? `<div class="empty-state" style="flex:1"><div class="icon">📊</div><p>Composez votre mix variétal pour voir les résultats</p></div>` : renderResults(res)}
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // Restore focus to search if it was active
   const si = document.getElementById('searchInput');
-  if (si && document.activeElement !== si && state.searchQuery.length > 0) {
-    si.focus();
-    si.setSelectionRange(si.value.length, si.value.length);
-  }
+  if (si && S.searchQuery.length>0) { si.focus(); si.setSelectionRange(si.value.length,si.value.length); }
 }
 
 function renderResults(res) {
-  const sc = getScenario();
-  const maxCA = Math.max(...res.rows.map(r => r.ca), 1);
-
-  return `
-    <div class="results-section">
-      <div class="kpi-grid">
-        <div class="kpi-card main">
-          <div class="kpi-label">Chiffre d'affaires / ha</div>
-          <div class="kpi-value">${fmtEur(res.caPerHa)}<span class="unit">/ ha</span></div>
-          <div class="kpi-sub">Surface totale : ${fmt(res.totalSurface, 3)} ha</div>
-        </div>
-        <div class="kpi-card main">
-          <div class="kpi-label">CA Total</div>
-          <div class="kpi-value">${fmtEur(res.totalCA)}</div>
-          <div class="kpi-sub">Sc\u00e9nario ${state.activeScenario}</div>
-        </div>
-        <div class="kpi-card yield">
-          <div class="kpi-label">Production totale</div>
-          <div class="kpi-value">${fmt(res.totalYield / 1000, 1)}<span class="unit">t</span></div>
-          <div class="kpi-sub">${fmt(res.totalYield)} kg</div>
-        </div>
-        <div class="kpi-card trees">
-          <div class="kpi-label">Arbres allou\u00e9s</div>
-          <div class="kpi-value">${fmt(res.totalTrees)}</div>
-          <div class="kpi-sub">sur ${fmt(state.totalTrees)} total</div>
-        </div>
+  const maxCA = Math.max(...res.rows.map(r=>r.ca),1);
+  return `<div class="results-section">
+    <div class="kpi-grid">
+      <div class="kpi-card ca">
+        <div class="kpi-label">CA / hectare</div>
+        <div class="kpi-value">${fmtEur(res.totalCA)}</div>
+        <div class="kpi-sub">Scénario ${S.activeScenario}</div>
       </div>
+      <div class="kpi-card yield">
+        <div class="kpi-label">Production</div>
+        <div class="kpi-value">${fmt(res.totalYield/1000,1)}<span class="unit">t/ha</span></div>
+        <div class="kpi-sub">${fmt(res.totalYield)} kg</div>
+      </div>
+      <div class="kpi-card price">
+        <div class="kpi-label">Prix moyen pondéré</div>
+        <div class="kpi-value">${fmt(res.avgPriceKg,2)}<span class="unit">€/kg</span></div>
+      </div>
+      <div class="kpi-card trees">
+        <div class="kpi-label">Nb. arbres / ha</div>
+        <div class="kpi-value">${fmt(res.totalTrees)}</div>
+        <div class="kpi-sub">densité mixte effective</div>
+      </div>
+    </div>
 
-      <!-- Breakdown -->
-      <div class="breakdown-title">D\u00e9tail par vari\u00e9t\u00e9</div>
-      <table class="breakdown-table">
-        <thead>
-          <tr>
-            <th>Vari\u00e9t\u00e9</th>
-            <th class="right">%</th>
-            <th class="right">Arbres</th>
-            <th class="right">Rdt eff.</th>
-            <th class="right">Prix eff.</th>
-            <th class="right">CA</th>
-            <th>Part du CA</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${res.rows.map(r => `
-            <tr>
-              <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:11px">${r.Espece}</span></td>
-              <td class="right">${fmt(r.pct, 1)}%</td>
-              <td class="right">${fmt(r.nbArbres)}</td>
-              <td class="right">${fmt(r.rendEff, 1)} kg</td>
-              <td class="right">${fmt(r.prixEff, 2)} \u20ac</td>
-              <td class="right" style="font-weight:600">${fmtEur(r.ca)}</td>
-              <td class="bar-cell">
-                <div class="bar-bg">
-                  <div class="bar-fill" style="width:${(r.ca / maxCA * 100).toFixed(1)}%"></div>
-                </div>
-              </td>
-            </tr>
-          `).join('')}
-          <tr class="total-row">
-            <td>Total</td>
-            <td class="right">${fmt(state.mix.reduce((s, m) => s + m.pct, 0), 1)}%</td>
-            <td class="right">${fmt(res.totalTrees)}</td>
-            <td class="right"></td>
-            <td class="right"></td>
-            <td class="right" style="font-size:14px">${fmtEur(res.totalCA)}</td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="breakdown-title">Détail par variété</div>
+    <table class="breakdown-table">
+      <thead><tr>
+        <th>Variété</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
+        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part</th>
+      </tr></thead>
+      <tbody>
+        ${res.rows.map(r => `<tr>
+          <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:10px">${r.Espece}</span></td>
+          <td class="r">${fmt(r.pct,1)}%</td>
+          <td class="r" style="color:var(--accent-light)">${r.density}</td>
+          <td class="r">${fmt(r.nbArbres)}</td>
+          <td class="r">${fmt(r.rendEff,1)} kg</td>
+          <td class="r">${fmt(r.prixEff,2)} €</td>
+          <td class="r" style="font-weight:600">${fmtEur(r.ca)}</td>
+          <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(r.ca/maxCA*100).toFixed(1)}%"></div></div></td>
+        </tr>`).join('')}
+        <tr class="total-row">
+          <td>Total</td><td class="r">${fmt(S.mix.reduce((s,m)=>s+m.pct,0),1)}%</td>
+          <td></td><td class="r">${fmt(res.totalTrees)}</td><td></td><td></td>
+          <td class="r" style="font-size:13px">${fmtEur(res.totalCA)}</td><td></td>
+        </tr>
+      </tbody>
+    </table>
 
-      <!-- Donut Chart -->
-      <div class="chart-section">
-        <div class="breakdown-title">R\u00e9partition du chiffre d'affaires</div>
-        <div class="chart-container">
-          <div class="donut-wrap">
-            ${renderDonut(res)}
-            <div class="donut-legend">
-              ${res.rows.map((r, i) => `
-                <div class="legend-item">
-                  <span class="legend-dot" style="background:${COLORS[i % COLORS.length]}"></span>
-                  <span>${r.Variete}</span>
-                  <span class="legend-value">${res.totalCA > 0 ? fmt(r.ca / res.totalCA * 100, 1) : 0}%</span>
-                </div>
-              `).join('')}
-            </div>
+    <div class="chart-section">
+      <div class="breakdown-title">Répartition du CA</div>
+      <div class="chart-container">
+        <div class="donut-wrap">
+          ${renderDonut(res)}
+          <div class="donut-legend">
+            ${res.rows.map((r,i) => `<div class="legend-item">
+              <span class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></span>
+              <span>${r.Variete}</span>
+              <span class="legend-value">${res.totalCA>0?fmt(r.ca/res.totalCA*100,1):0}%</span>
+            </div>`).join('')}
           </div>
         </div>
       </div>
     </div>
-  `;
+  </div>`;
 }
 
 function renderDonut(res) {
-  if (res.totalCA === 0) return '<div style="color:var(--text-dim)">Pas de CA à afficher</div>';
-
-  const cx = 100, cy = 100, R = 80, r = 50;
-  let cumAngle = -Math.PI / 2;
-  let paths = '';
-
-  res.rows.forEach((row, i) => {
-    const frac = row.ca / res.totalCA;
-    if (frac <= 0) return;
-    const angle = frac * Math.PI * 2;
-    const x1o = cx + R * Math.cos(cumAngle);
-    const y1o = cy + R * Math.sin(cumAngle);
-    const x1i = cx + r * Math.cos(cumAngle);
-    const y1i = cy + r * Math.sin(cumAngle);
-    cumAngle += angle;
-    const x2o = cx + R * Math.cos(cumAngle);
-    const y2o = cy + R * Math.sin(cumAngle);
-    const x2i = cx + r * Math.cos(cumAngle);
-    const y2i = cy + r * Math.sin(cumAngle);
-    const large = angle > Math.PI ? 1 : 0;
-    paths += `<path d="M${x1o},${y1o} A${R},${R} 0 ${large} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${large} 0 ${x1i},${y1i} Z" fill="${COLORS[i % COLORS.length]}" opacity="0.85"/>`;
+  if (res.totalCA===0) return '<div style="color:var(--text-dim)">—</div>';
+  const cx=80,cy=80,R=70,r=42; let cum=-Math.PI/2; let paths='';
+  res.rows.forEach((row,i) => {
+    const f=row.ca/res.totalCA; if(f<=0) return;
+    const a=f*Math.PI*2;
+    const x1o=cx+R*Math.cos(cum),y1o=cy+R*Math.sin(cum),x1i=cx+r*Math.cos(cum),y1i=cy+r*Math.sin(cum);
+    cum+=a;
+    const x2o=cx+R*Math.cos(cum),y2o=cy+R*Math.sin(cum),x2i=cx+r*Math.cos(cum),y2i=cy+r*Math.sin(cum);
+    const lg=a>Math.PI?1:0;
+    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${COLORS[i%COLORS.length]}" opacity=".85"/>`;
   });
-
-  return `
-    <svg class="donut-svg" viewBox="0 0 200 200">
-      ${paths}
-      <text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700">${fmtEur(res.totalCA)}</text>
-      <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="10">CA total</text>
-    </svg>
-  `;
+  return `<svg class="donut-svg" viewBox="0 0 160 160">${paths}
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">${fmtEur(res.totalCA)}</text>
+    <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text-dim)" font-size="9">/ hectare</text>
+  </svg>`;
 }
 
 // ─── Actions ───
-function setScenario(s) {
-  state.activeScenario = s;
-  render();
-}
+function setScenario(s) { S.activeScenario=s; render(); }
 
 function addVariety(nocoId) {
-  if (state.mix.find(m => m.NocoDB_Id === nocoId)) return;
-  // Auto-distribute: if mix is empty start with 100%, else split evenly
-  const n = state.mix.length + 1;
-  const evenPct = Math.round(100 / n * 10) / 10;
-  state.mix.forEach(m => m.pct = evenPct);
-  state.mix.push({ NocoDB_Id: nocoId, pct: evenPct });
-  // Adjust so total = 100
-  const diff = 100 - state.mix.reduce((s, m) => s + m.pct, 0);
-  state.mix[state.mix.length - 1].pct = Math.round((state.mix[state.mix.length - 1].pct + diff) * 10) / 10;
-  state.searchQuery = '';
-  render();
+  if (S.mix.find(m=>m.NocoDB_Id===nocoId)) return;
+  const n=S.mix.length+1;
+  const ep=Math.round(100/n*10)/10;
+  S.mix.forEach(m=>m.pct=ep);
+  S.mix.push({NocoDB_Id:nocoId,pct:ep});
+  const diff=100-S.mix.reduce((s,m)=>s+m.pct,0);
+  S.mix[S.mix.length-1].pct=Math.round((S.mix[S.mix.length-1].pct+diff)*10)/10;
+  S.searchQuery=''; render();
 }
 
 function removeVariety(idx) {
-  state.mix.splice(idx, 1);
-  if (state.mix.length > 0) {
-    const evenPct = Math.round(100 / state.mix.length * 10) / 10;
-    state.mix.forEach(m => m.pct = evenPct);
-    const diff = 100 - state.mix.reduce((s, m) => s + m.pct, 0);
-    state.mix[state.mix.length - 1].pct = Math.round((state.mix[state.mix.length - 1].pct + diff) * 10) / 10;
+  S.mix.splice(idx,1);
+  if(S.mix.length>0){
+    const ep=Math.round(100/S.mix.length*10)/10;
+    S.mix.forEach(m=>m.pct=ep);
+    const diff=100-S.mix.reduce((s,m)=>s+m.pct,0);
+    S.mix[S.mix.length-1].pct=Math.round((S.mix[S.mix.length-1].pct+diff)*10)/10;
   }
   render();
 }
 
-function updatePct(idx, val) {
-  state.mix[idx].pct = val;
-  render();
+function updatePct(idx,val) { S.mix[idx].pct=val; render(); }
+
+function onLoadSelect(val) { S.loadedJardinId = val ? parseInt(val) : null; }
+
+// ─── Save/Load Grist ───
+async function loadSimulation() {
+  const jid = S.loadedJardinId;
+  if (!jid) return;
+  try {
+    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
+    const n = mixData.id.length;
+    const newMix = [];
+    // Find all mix rows for this jardin
+    for (let i=0; i<n; i++) {
+      if (mixData.Jardins_id[i] === S.jardins.find(j=>j.id===jid)?.NocoDB_Id) {
+        const vid = mixData.Varietes_id[i];
+        const nb = mixData.Nb_arbres[i] || 0;
+        // Convert Nb_arbres back to % using density
+        const v = S.varieties.find(x=>x.NocoDB_Id===vid);
+        if (v) {
+          const d = getDensity(v);
+          const pct = d>0 ? Math.round(nb/d*1000)/10 : 10;
+          newMix.push({NocoDB_Id: vid, pct});
+        }
+      }
+    }
+    if (newMix.length>0) {
+      S.mix = newMix;
+      const j = S.jardins.find(j=>j.id===jid);
+      S.saveName = j ? j.Title : '';
+      render();
+    }
+  } catch(e) { console.error('Load error:',e); }
+}
+
+async function saveSimulation() {
+  const name = S.saveName || ('Simulation ' + new Date().toLocaleDateString('fr-FR'));
+  if (S.mix.length===0) return;
+  try {
+    const sc = getScenario();
+    // Find or pick the scenario param id
+    const paramNocId = S.scenarios.findIndex(s=>s===sc) + 1;
+
+    // Get next NocoDB_Id for jardins
+    const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
+    const maxJardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
+
+    // Create the jardin record
+    const tJardins = grist.getTable('Simulation_Jardins');
+    const jardinIds = await tJardins.create([{
+      fields: { NocoDB_Id: maxJardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
+    }]);
+
+    // Get next NocoDB_Id for mix
+    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
+    let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
+
+    // Create mix records
+    const tMix = grist.getTable('Simulation_Mix_Varietal');
+    const mixRows = S.mix.map((m,i) => {
+      const v = S.varieties.find(x=>x.NocoDB_Id===m.NocoDB_Id);
+      const d = getDensity(v);
+      const nb = Math.round(d * m.pct / 100);
+      maxMixNoco++;
+      return {
+        fields: {
+          NocoDB_Id: maxMixNoco,
+          Title: name + '-' + (i+1),
+          Nb_arbres: nb,
+          Jardins_id: maxJardinNoco,
+          Varietes_id: m.NocoDB_Id
+        }
+      };
+    });
+    await tMix.create(mixRows);
+
+    // Refresh jardins list
+    await loadJardins();
+    S.saveName = name;
+    S.loadedJardinId = jardinIds[0];
+    render();
+    alert('Simulation "' + name + '" sauvegardée !');
+  } catch(e) { console.error('Save error:',e); alert('Erreur: '+e.message); }
+}
+
+async function loadJardins() {
+  try {
+    const jData = await grist.docApi.fetchTable('Simulation_Jardins');
+    S.jardins = [];
+    for (let i=0;i<jData.id.length;i++) {
+      S.jardins.push({id:jData.id[i], NocoDB_Id:jData.NocoDB_Id[i], Title:jData.Title[i], Strategie:jData.Strategie[i]});
+    }
+  } catch(e) { console.error(e); }
 }
 
 // ─── Data Loading ───
 async function loadFromGrist() {
   try {
-    // Fetch all tables with full access
     const [varData, prxData, parData] = await Promise.all([
       grist.docApi.fetchTable('Varietes'),
       grist.docApi.fetchTable('Prix_Fruits'),
       grist.docApi.fetchTable('Simulation_Parametres')
     ]);
 
-    // Parse Varietes (columnar format)
-    const varCount = varData.id.length;
     const varieties = [];
-    for (let i = 0; i < varCount; i++) {
+    for (let i=0;i<varData.id.length;i++) {
       varieties.push({
-        id: varData.id[i],
-        NocoDB_Id: varData.NocoDB_Id[i],
-        Variete: varData.Variete[i],
-        Espece: varData.Espece[i],
-        Rendement_cible_kg: varData.Rendement_cible_kg[i] || 0,
-        avgPrix: 0
+        id:varData.id[i], NocoDB_Id:varData.NocoDB_Id[i],
+        Variete:varData.Variete[i], Espece:varData.Espece[i],
+        Rendement_cible_kg:varData.Rendement_cible_kg[i]||0,
+        Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i]||0) : (varData.Densite_ha ? (varData.Densite_ha[i]||0) : 0)),
+        avgPrix:0
       });
     }
 
-    // Parse Prix_Fruits and compute average per NocoDB_Id
-    const prxCount = prxData.id.length;
-    const priceMap = {}; // Varietes_id -> [prices]
-    for (let i = 0; i < prxCount; i++) {
-      const vid = prxData.Varietes_id[i];
-      const px = prxData.Prix_kg_EUR[i];
-      if (vid && px) {
-        if (!priceMap[vid]) priceMap[vid] = [];
-        priceMap[vid].push(px);
-      }
+    const priceMap={};
+    for (let i=0;i<prxData.id.length;i++) {
+      const vid=prxData.Varietes_id[i], px=prxData.Prix_kg_EUR[i];
+      if(vid&&px){if(!priceMap[vid])priceMap[vid]=[];priceMap[vid].push(px);}
     }
-    varieties.forEach(v => {
-      const prices = priceMap[v.NocoDB_Id];
-      if (prices && prices.length > 0) {
-        v.avgPrix = prices.reduce((a, b) => a + b, 0) / prices.length;
-      }
-    });
+    varieties.forEach(v=>{const p=priceMap[v.NocoDB_Id];if(p&&p.length)v.avgPrix=p.reduce((a,b)=>a+b,0)/p.length;});
 
-    // Parse Simulation_Parametres
-    const parCount = parData.id.length;
-    const scenarios = [];
-    for (let i = 0; i < parCount; i++) {
-      scenarios.push({
-        id: parData.id[i],
-        Title: parData.Title[i],
-        Coeff_rendement: parData.Coeff_rendement[i] || 0.6,
-        Coeff_prix: parData.Coeff_prix[i] || 0.5,
-        Densite_arbres_ha: parData.Densite_arbres_ha[i] || 1000,
-        CA_cible_EUR: parData.CA_cible_EUR[i] || 150000
-      });
+    const scenarios=[];
+    for(let i=0;i<parData.id.length;i++){
+      scenarios.push({id:parData.id[i],Title:parData.Title[i],
+        Coeff_rendement:parData.Coeff_rendement[i]||.6,Coeff_prix:parData.Coeff_prix[i]||.5,
+        Densite_arbres_ha:parData.Densite_arbres_ha[i]||1000});
     }
+    scenarios.sort((a,b)=>a.Coeff_rendement-b.Coeff_rendement);
 
-    // Sort scenarios: pessimiste (lowest coeff_rendement) first
-    scenarios.sort((a, b) => a.Coeff_rendement - b.Coeff_rendement);
+    S.varieties=varieties.sort((a,b)=>a.Variete.localeCompare(b.Variete));
+    S.scenarios=scenarios;
 
-    state.varieties = varieties.sort((a, b) => a.Variete.localeCompare(b.Variete));
-    state.scenarios = scenarios;
-    state.densiteHa = scenarios[0]?.Densite_arbres_ha || 1000;
-    state.loaded = true;
-
+    await loadJardins();
+    S.loaded=true;
     render();
-  } catch (err) {
-    console.error('Grist load error:', err);
-    loadStandalone();
-  }
+  } catch(e) { console.error('Grist error:',e); loadStandalone(); }
 }
 
-// ─── Standalone mode (outside Grist) ───
 function loadStandalone() {
-  state.scenarios = [
-    { id: 1, Title: 'Pessimiste', Coeff_rendement: 0.6, Coeff_prix: 0.5, Densite_arbres_ha: 1000 },
-    { id: 2, Title: 'Normal', Coeff_rendement: 0.8, Coeff_prix: 0.75, Densite_arbres_ha: 1000 },
-    { id: 3, Title: 'Optimiste', Coeff_rendement: 1.0, Coeff_prix: 0.9, Densite_arbres_ha: 1000 }
+  S.scenarios=[
+    {id:1,Title:'Pessimiste',Coeff_rendement:.6,Coeff_prix:.5},
+    {id:2,Title:'Normal',Coeff_rendement:.8,Coeff_prix:.75},
+    {id:3,Title:'Optimiste',Coeff_rendement:1,Coeff_prix:.9}
   ];
-  state.varieties = [
-    { NocoDB_Id: 140, Variete: 'Yuzu (exemple)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75 },
-    { NocoDB_Id: 178, Variete: 'Citron caviar (exemple)', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200 },
-    { NocoDB_Id: 205, Variete: 'Bergamote (exemple)', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19 },
-    { NocoDB_Id: 224, Variete: 'Main de Bouddha (exemple)', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5 }
+  S.varieties=[
+    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0},
+    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0},
+    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0},
+    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0}
   ];
-  state.loaded = true;
-  render();
+  S.loaded=true; render();
 }
 
-// ─── Init ───
 try {
-  grist.ready({ requiredAccess: 'full' });
-  grist.onRecords(function() {
-    // Re-fetch on data changes
-    loadFromGrist();
-  });
+  grist.ready({requiredAccess:'full'});
+  grist.onRecords(()=>loadFromGrist());
   loadFromGrist();
-} catch (e) {
-  // Not in Grist — standalone mode
-  loadStandalone();
-}
+} catch(e) { loadStandalone(); }
 </script>
 </body>
 </html>
