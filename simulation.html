@@ -433,19 +433,19 @@
                         % <template x-if="detailSort.col==='pct'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
                       <th class="r" @click="sortDetail('nbArbres')" style="cursor:pointer">
-                        Arbres <template x-if="detailSort.col==='nbArbres'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                        Nb arbres <template x-if="detailSort.col==='nbArbres'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
-                      <th class="r" @click="sortDetail('rendEff')" style="cursor:pointer">
-                        Rdt eff. <template x-if="detailSort.col==='rendEff'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      <th class="r" @click="sortDetail('yieldKg')" style="cursor:pointer">
+                        Récolte <template x-if="detailSort.col==='yieldKg'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
                       <th class="r" @click="sortDetail('ca')" style="cursor:pointer">
-                        CA <template x-if="detailSort.col==='ca'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                        CA / ha <template x-if="detailSort.col==='ca'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
                       <th class="r" @click="sortDetail('rentaHa')" style="cursor:pointer">
-                        Renta/ha <template x-if="detailSort.col==='rentaHa'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                        CA 100% <template x-if="detailSort.col==='rentaHa'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
-                      <th class="r" @click="sortDetail('minPlantPrice')" style="cursor:pointer">
-                        Prix plant <template x-if="detailSort.col==='minPlantPrice'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      <th class="r" @click="sortDetail('coutPlants')" style="cursor:pointer">
+                        Coût plants <template x-if="detailSort.col==='coutPlants'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
                     </tr>
                   </thead>
@@ -456,17 +456,20 @@
                         <td class="r" style="font-weight:600" x-text="r.parts"></td>
                         <td class="r" x-text="`${fmt(r.pct,1)}%`"></td>
                         <td class="r" x-text="fmt(r.nbArbres)"></td>
-                        <td class="r" x-text="`${fmt(r.rendEff,1)} kg`"></td>
+                        <td class="r" x-text="`${fmt(r.yieldKg,0)} kg`"></td>
                         <td class="r" style="font-weight:600">
                           <div style="margin-bottom:2px"><span x-text="fmtEur(r.ca)"></span> <span style="color:var(--text-dim);font-size:10px" x-text="`(${computed.totalCA>0?(r.ca/computed.totalCA*100).toFixed(1):'0'}%)`"></span></div>
                           <div class="bar-bg"><div class="bar-fill" :style="`width:${(r.ca/Math.max(...computed.rows.map(x=>x.ca),1)*100).toFixed(1)}%`"></div></div>
                         </td>
                         <td class="r" x-text="fmtCompact(r.rentaHa)"></td>
                         <td class="r">
-                          <template x-if="r.minPlantPrice">
-                            <span x-text="`${fmt(r.minPlantPrice,2)} €`"></span>
+                          <template x-if="r.coutPlants">
+                            <span>
+                              <span x-text="fmtEur(r.coutPlants)"></span>
+                              <br><span style="color:var(--text-dim);font-size:10px" x-text="`(${fmt(r.minPlantPrice,0)} €/plant)`"></span>
+                            </span>
                           </template>
-                          <template x-if="!r.minPlantPrice">
+                          <template x-if="!r.coutPlants">
                             <span title="Aucun prix de plant disponible" style="cursor:help;color:#ef4444;font-size:14px">⚠️</span>
                           </template>
                         </td>
@@ -477,10 +480,10 @@
                       <td class="r" x-text="totalParts"></td>
                       <td class="r">100%</td>
                       <td class="r" x-text="fmt(computed.totalTrees)"></td>
-                      <td class="r" x-text="`${fmt(computed.totalRendEff,1)} kg`"></td>
+                      <td class="r" x-text="`${fmt(computed.totalYield,0)} kg`"></td>
                       <td class="r" style="font-size:13px" x-text="fmtEur(computed.totalCA)"></td>
-                      <td class="r" x-text="fmtCompact(computed.avgRentaHa)"></td>
-                      <td class="r" x-text="computed.totalPlantPrice ? fmtEur(computed.totalPlantPrice) : '—'"></td>
+                      <td class="r" x-text="fmtCompact(computed.avgRentaHa)" title="Moyenne pondérée"></td>
+                      <td class="r" x-text="computed.totalCoutPlants ? fmtEur(computed.totalCoutPlants) : '—'"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -586,6 +589,7 @@ function simulator() {
           id: v.id, Variete: v.Variete, Espece: v.Espece,
           Groupe: this.getGroup(v),
           minPlantPrice: v.minPlantPrice || null,
+          coutPlants: (v.minPlantPrice && nbArbres) ? v.minPlantPrice * nbArbres : null,
           parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca, rentaHa
         };
       }).filter(Boolean);
@@ -596,7 +600,7 @@ function simulator() {
       const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
       const totalRendEff = rows.reduce((s, r) => s + r.rendEff, 0);
       const avgRentaHa = totalParts > 0 ? rows.reduce((s, r) => s + r.rentaHa * r.pct / 100, 0) : 0;
-      const totalPlantPrice = rows.reduce((s, r) => s + (r.minPlantPrice || 0), 0) || null;
+      const totalCoutPlants = rows.reduce((s, r) => s + (r.coutPlants || 0), 0) || null;
 
       const groupMap = {};
       rows.forEach(r => {
@@ -611,7 +615,7 @@ function simulator() {
       const groups = this.GROUP_ORDER.filter(g => groupMap[g]).map(g => groupMap[g]);
       Object.keys(groupMap).forEach(g => { if (!this.GROUP_ORDER.includes(g)) groups.push(groupMap[g]); });
 
-      return { rows, totalCA, totalYield, totalTrees, avgPriceKg, totalRendEff, avgRentaHa, totalPlantPrice, groups };
+      return { rows, totalCA, totalYield, totalTrees, avgPriceKg, totalRendEff, avgRentaHa, totalCoutPlants, groups };
     },
 
     get sortedMix() {
