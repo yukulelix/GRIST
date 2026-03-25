@@ -99,7 +99,16 @@
       display:flex; justify-content:space-between; align-items:center;
     }
     .mix-header h3 { font-size:12px; font-weight:600; }
-    .mix-total-parts { font-size:11px; color:var(--text-dim); }
+    .mix-header-right { display:flex; align-items:center; gap:6px; }
+    .mix-total-parts { font-size:10px; color:var(--text-dim); }
+    .sort-btns { display:flex; gap:2px; }
+    .sort-btn {
+      font-size:10px; padding:2px 7px; border-radius:4px; border:1px solid var(--border);
+      background:transparent; color:var(--text-dim); cursor:pointer; transition:all .15s; white-space:nowrap;
+    }
+    .sort-btn:hover { color:var(--text); border-color:var(--accent); }
+    .sort-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .mix-ca { font-size:10px; color:var(--gold); min-width:50px; text-align:right; font-weight:600; }
     .mix-list { flex:1; overflow-y:auto; }
     .mix-row {
       display:flex; align-items:center; gap:6px; padding:8px 14px;
@@ -255,11 +264,18 @@ let S = {
   activeScenario: 'normal',
   mix: [],
   searchQuery: '',
-  loadedJardinId: null, saveName: ''
+  loadedJardinId: null, saveName: '',
+  mixSort: 'order'
 };
 
 function fmt(n, d=0) { return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n); }
 function fmtEur(n) { return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n); }
+function fmtCompact(n) {
+  if (Math.abs(n) >= 1e6) return fmt(n/1e6,1) + ' M€';
+  if (Math.abs(n) >= 1e4) return fmt(n/1e3,0) + ' k€';
+  if (Math.abs(n) >= 1e3) return fmt(n/1e3,1) + ' k€';
+  return fmt(n,0) + ' €';
+}
 
 function getScenario() {
   const map = {pessimiste:0, normal:1, optimiste:2};
@@ -278,6 +294,45 @@ function getGroup(v) {
 // ─── Parts → % helper ───
 function getTotalParts() { return S.mix.reduce((s,m) => s + m.parts, 0); }
 function getPct(m) { const t = getTotalParts(); return t > 0 ? (m.parts / t * 100) : 0; }
+
+// ─── Rentability: CA/ha if 100% this variety ───
+function getRentaHa(v) {
+  const sc = getScenario();
+  const d = getDensity(v);
+  const rendEff = v.Rendement_cible_kg * (sc.Coeff_rendement||.8);
+  const prixEff = v.avgPrix * (sc.Coeff_prix||.75);
+  return d * rendEff * prixEff;
+}
+
+// ─── Sort mix ───
+function setMixSort(mode) { S.mixSort = mode; render(); }
+function getSortedMix() {
+  const indexed = S.mix.map((m,i) => ({m,i}));
+  const sc = getScenario();
+  switch(S.mixSort) {
+    case 'ca':
+      return indexed.sort((a,b) => {
+        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
+        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
+        return (vb?getRentaHa(vb):0) - (va?getRentaHa(va):0);
+      });
+    case 'trees':
+      return indexed.sort((a,b) => {
+        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
+        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
+        const na = va ? Math.round(getDensity(va)*getPct(a.m)/100) : 0;
+        const nb = vb ? Math.round(getDensity(vb)*getPct(b.m)/100) : 0;
+        return nb - na;
+      });
+    case 'alpha':
+      return indexed.sort((a,b) => {
+        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
+        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
+        return (va?va.Variete:'').localeCompare(vb?vb.Variete:'');
+      });
+    default: return indexed;
+  }
+}
 
 // ─── Compute ───
 function compute() {
@@ -390,25 +445,34 @@ function render() {
         </div>
 
         <div class="mix-header">
-          <h3>Mix variétal · ${S.mix.length} var.</h3>
-          <span class="mix-total-parts">${totalParts} part${totalParts>1?'s':''} au total</span>
+          <h3>Mix variétal · ${S.mix.length} var. · ${totalParts} part${totalParts>1?'s':''}</h3>
+          <div class="mix-header-right">
+            <div class="sort-btns">
+              <button class="sort-btn ${S.mixSort==='order'?'active':''}" onclick="setMixSort('order')">Ordre</button>
+              <button class="sort-btn ${S.mixSort==='ca'?'active':''}" onclick="setMixSort('ca')">€/ha</button>
+              <button class="sort-btn ${S.mixSort==='trees'?'active':''}" onclick="setMixSort('trees')">Arbres</button>
+              <button class="sort-btn ${S.mixSort==='alpha'?'active':''}" onclick="setMixSort('alpha')">A-Z</button>
+            </div>
+          </div>
         </div>
 
         <div class="mix-list">
           ${S.mix.length===0 ? `<div class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>` :
-            S.mix.map((m,i) => {
+            getSortedMix().map(({m,i}) => {
               const v = S.varieties.find(x => x.NocoDB_Id===m.NocoDB_Id);
               if (!v) return '';
               const d = getDensity(v);
               const pct = getPct(m);
               const nb = Math.round(d * pct / 100);
               const g = getGroup(v);
+              const rentaHa = getRentaHa(v);
               return `<div class="mix-row">
                 <div class="mix-info">
                   <div class="mix-name">${v.Variete}</div>
-                  <div class="mix-espece">${g ? g+' · ' : ''}${v.Espece} · ${d}/ha · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
+                  <div class="mix-espece">${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
                 </div>
                 <div class="mix-controls">
+                  <span class="mix-ca" title="Rentabilité si 100% de cette variété">${fmtCompact(rentaHa)}/ha</span>
                   <span class="mix-trees">${nb} arb.</span>
                   <span class="mix-pct">${fmt(pct,1)}%</span>
                   <div class="parts-group">
