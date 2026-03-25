@@ -352,16 +352,14 @@
                 <div class="chart-card">
                   <div class="chart-card-title">CA par catégorie</div>
                   <div class="donut-wrap">
-                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.ca})), computed.totalCA, computed.groups.map((g,i)=>GROUP_COLORS[g.name]||'#888'), fmtEur(computed.totalCA), '/ hectare')"></div>
+                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.ca})), computed.totalCA, computed.groups.map(g=>GROUP_COLORS[g.name]||'#888'), fmtEur(computed.totalCA), '/ hectare')"></div>
                     <div class="donut-legend">
-                      <template x-for="(g,i) of computed.groups">
-                        <template x-if="computed.totalCA>0?((g.ca/computed.totalCA*100)>0):false">
-                          <div class="legend-item">
-                            <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
-                            <span class="legend-name" x-text="g.name"></span>
-                            <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(g.ca/computed.totalCA*100):0,1)}%`"></span>
-                          </div>
-                        </template>
+                      <template x-for="g of legendGroupsByCA">
+                        <div class="legend-item" x-show="g.ca>0">
+                          <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
+                          <span class="legend-name" x-text="g.name"></span>
+                          <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(g.ca/computed.totalCA*100):0,1)}%`"></span>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -371,16 +369,14 @@
                 <div class="chart-card">
                   <div class="chart-card-title">Surface par catégorie</div>
                   <div class="donut-wrap">
-                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.pct})), 100, computed.groups.map((g,i)=>GROUP_COLORS[g.name]||'#888'), '1 ha', 'surface')"></div>
+                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.pct})), 100, computed.groups.map(g=>GROUP_COLORS[g.name]||'#888'), '1 ha', 'surface')"></div>
                     <div class="donut-legend">
-                      <template x-for="(g,i) of computed.groups">
-                        <template x-if="g.pct>0">
-                          <div class="legend-item">
-                            <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
-                            <span class="legend-name" x-text="g.name"></span>
-                            <span class="legend-value" x-text="`${fmt(g.pct,1)}%`"></span>
-                          </div>
-                        </template>
+                      <template x-for="g of legendGroupsByPct">
+                        <div class="legend-item" x-show="g.pct>0">
+                          <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
+                          <span class="legend-name" x-text="g.name"></span>
+                          <span class="legend-value" x-text="`${fmt(g.pct,1)}%`"></span>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -390,16 +386,14 @@
                 <div class="chart-card">
                   <div class="chart-card-title">CA par variété</div>
                   <div class="donut-wrap">
-                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.ca})), computed.totalCA, computed.rows.map((r,i)=>COLORS[i%COLORS.length]), fmtEur(computed.totalCA), '/ hectare')"></div>
+                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.ca})), computed.totalCA, computed.rows.map((_,i)=>COLORS[i%COLORS.length]), fmtEur(computed.totalCA), '/ hectare')"></div>
                     <div class="donut-legend">
-                      <template x-for="(r,i) of computed.rows">
-                        <template x-if="computed.totalCA>0?((r.ca/computed.totalCA*100)>0):false">
-                          <div class="legend-item">
-                            <span class="legend-dot" :style="`background:${COLORS[i%COLORS.length]}`"></span>
-                            <span class="legend-name" x-text="r.Variete"></span>
-                            <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(r.ca/computed.totalCA*100):0,1)}%`"></span>
-                          </div>
-                        </template>
+                      <template x-for="r of legendRowsByCA">
+                        <div class="legend-item" x-show="r.ca>0">
+                          <span class="legend-dot" :style="`background:${r._color}`"></span>
+                          <span class="legend-name" x-text="r.Variete"></span>
+                          <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(r.ca/computed.totalCA*100):0,1)}%`"></span>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -409,16 +403,14 @@
                 <div class="chart-card">
                   <div class="chart-card-title">Surface par variété</div>
                   <div class="donut-wrap">
-                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.pct})), 100, computed.rows.map((r,i)=>COLORS[i%COLORS.length]), '1 ha', 'surface')"></div>
+                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.pct})), 100, computed.rows.map((_,i)=>COLORS[i%COLORS.length]), '1 ha', 'surface')"></div>
                     <div class="donut-legend">
-                      <template x-for="(r,i) of computed.rows">
-                        <template x-if="r.pct>0">
-                          <div class="legend-item">
-                            <span class="legend-dot" :style="`background:${COLORS[i%COLORS.length]}`"></span>
-                            <span class="legend-name" x-text="r.Variete"></span>
-                            <span class="legend-value" x-text="`${fmt(r.pct,1)}%`"></span>
-                          </div>
-                        </template>
+                      <template x-for="r of legendRowsByPct">
+                        <div class="legend-item" x-show="r.pct>0">
+                          <span class="legend-dot" :style="`background:${r._color}`"></span>
+                          <span class="legend-name" x-text="r.Variete"></span>
+                          <span class="legend-value" x-text="`${fmt(r.pct,1)}%`"></span>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -461,6 +453,9 @@
                       <th class="r" @click="sortDetail('rentaHa')" style="cursor:pointer">
                         Renta/ha <template x-if="detailSort.col==='rentaHa'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
                       </th>
+                      <th class="r" @click="sortDetail('minPlantPrice')" style="cursor:pointer">
+                        Prix plant <template x-if="detailSort.col==='minPlantPrice'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
                       <th>Part CA</th>
                     </tr>
                   </thead>
@@ -477,6 +472,14 @@
                         <td class="r" x-text="`${fmt(r.prixEff,2)} €`"></td>
                         <td class="r" style="font-weight:600" x-text="fmtEur(r.ca)"></td>
                         <td class="r" x-text="fmtCompact(r.rentaHa)"></td>
+                        <td class="r">
+                          <template x-if="r.minPlantPrice">
+                            <span x-text="`${fmt(r.minPlantPrice,2)} €`"></span>
+                          </template>
+                          <template x-if="!r.minPlantPrice">
+                            <span title="Aucun prix de plant disponible" style="cursor:help;color:#ef4444;font-size:14px">⚠️</span>
+                          </template>
+                        </td>
                         <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" :style="`width:${(r.ca/Math.max(...computed.rows.map(x=>x.ca),1)*100).toFixed(1)}%`"></div></div></td>
                       </tr>
                     </template>
@@ -488,7 +491,7 @@
                       <td class="r" x-text="fmt(computed.totalTrees)"></td>
                       <td></td><td></td><td></td>
                       <td class="r" style="font-size:13px" x-text="fmtEur(computed.totalCA)"></td>
-                      <td></td><td></td>
+                      <td></td><td></td><td></td>
                     </tr>
                   </tbody>
                 </table>
@@ -593,6 +596,7 @@ function simulator() {
         return {
           NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
           Groupe: this.getGroup(v),
+          minPlantPrice: v.minPlantPrice || null,
           parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca, rentaHa
         };
       }).filter(Boolean);
@@ -644,6 +648,21 @@ function simulator() {
         default:
           return indexed;
       }
+    },
+
+    get legendGroupsByCA() {
+      return this.computed.groups.slice().sort((a,b) => b.ca - a.ca);
+    },
+    get legendGroupsByPct() {
+      return this.computed.groups.slice().sort((a,b) => b.pct - a.pct);
+    },
+    get legendRowsByCA() {
+      const rows = this.computed.rows;
+      return rows.map((r,i) => ({...r, _color: COLORS[i % COLORS.length]})).sort((a,b) => b.ca - a.ca);
+    },
+    get legendRowsByPct() {
+      const rows = this.computed.rows;
+      return rows.map((r,i) => ({...r, _color: COLORS[i % COLORS.length]})).sort((a,b) => b.pct - a.pct);
     },
 
     get sortedDetailRows() {
@@ -783,11 +802,12 @@ function simulator() {
 
     async loadFromGrist() {
       try {
-        const [varData, prxData, parData, catData] = await Promise.all([
+        const [varData, prxData, parData, catData, plantData] = await Promise.all([
           grist.docApi.fetchTable('Varietes'),
           grist.docApi.fetchTable('Prix_Fruits'),
           grist.docApi.fetchTable('Simulation_Parametres'),
-          grist.docApi.fetchTable('Categories')
+          grist.docApi.fetchTable('Categories'),
+          grist.docApi.fetchTable('Prix_Plants')
         ]);
 
         const cats = [];
@@ -817,6 +837,16 @@ function simulator() {
           if (vid && px) { if (!priceMap[vid]) priceMap[vid] = []; priceMap[vid].push(px); }
         }
         varieties.forEach(v => { const p = priceMap[v.NocoDB_Id]; if (p && p.length) v.avgPrix = p.reduce((a, b) => a + b, 0) / p.length; });
+
+        // Plant prices: keep min price per variety
+        const plantPriceMap = {};
+        for (let i = 0; i < plantData.id.length; i++) {
+          const vid = plantData.Varietes_id[i], px = plantData.Prix_plant_EUR[i];
+          if (vid && px && px > 0) {
+            if (!plantPriceMap[vid] || px < plantPriceMap[vid]) plantPriceMap[vid] = px;
+          }
+        }
+        varieties.forEach(v => { v.minPlantPrice = plantPriceMap[v.NocoDB_Id] || null; });
 
         const scenarios = [];
         for (let i = 0; i < parData.id.length; i++) {
@@ -859,12 +889,12 @@ function simulator() {
         { id: 3, Title: 'Optimiste', Coeff_rendement: 1, Coeff_prix: .9 }
       ];
       this.varieties = [
-        { NocoDB_Id: 140, Variete: 'Yuzu (standard)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75, Densite_ha: 0, Groupe_commercial: '🌿 Papédas et agrumes d\'Asie orientale' },
-        { NocoDB_Id: 178, Variete: 'Green', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200, Densite_ha: 0, Groupe_commercial: '🌱 Agrumes australiens' },
-        { NocoDB_Id: 205, Variete: 'Bergamote Castagnaro', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19, Densite_ha: 0, Groupe_commercial: '🟠 Bigaradiers et bergamotiers' },
-        { NocoDB_Id: 224, Variete: 'Main de Bouddha', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5, Densite_ha: 0, Groupe_commercial: '🟡 Cédratiers' },
-        { NocoDB_Id: 1, Variete: 'Owari', Espece: 'Mandarine Satsuma', Rendement_cible_kg: 75, avgPrix: 3.5, Densite_ha: 0, Groupe_commercial: '🍊 Mandariniers' },
-        { NocoDB_Id: 50, Variete: 'Eureka', Espece: 'Citron', Rendement_cible_kg: 60, avgPrix: 2.8, Densite_ha: 0, Groupe_commercial: '🍋 Citronniers' }
+        { NocoDB_Id: 140, Variete: 'Yuzu (standard)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75, Densite_ha: 0, Groupe_commercial: '🌿 Papédas et agrumes d\'Asie orientale', minPlantPrice: 35 },
+        { NocoDB_Id: 178, Variete: 'Green', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200, Densite_ha: 0, Groupe_commercial: '🌱 Agrumes australiens', minPlantPrice: 25 },
+        { NocoDB_Id: 205, Variete: 'Bergamote Castagnaro', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19, Densite_ha: 0, Groupe_commercial: '🟠 Bigaradiers et bergamotiers', minPlantPrice: null },
+        { NocoDB_Id: 224, Variete: 'Main de Bouddha', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5, Densite_ha: 0, Groupe_commercial: '🟡 Cédratiers', minPlantPrice: 42 },
+        { NocoDB_Id: 1, Variete: 'Owari', Espece: 'Mandarine Satsuma', Rendement_cible_kg: 75, avgPrix: 3.5, Densite_ha: 0, Groupe_commercial: '🍊 Mandariniers', minPlantPrice: 18 },
+        { NocoDB_Id: 50, Variete: 'Eureka', Espece: 'Citron', Rendement_cible_kg: 60, avgPrix: 2.8, Densite_ha: 0, Groupe_commercial: '🍋 Citronniers', minPlantPrice: null }
       ];
       const standaloneGroups = [...new Set(Object.values(ESPECE_GROUP))];
       this.GROUP_ORDER = standaloneGroups;
