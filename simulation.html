@@ -91,6 +91,7 @@
     .variety-item .v-price { color:var(--gold); }
     .variety-item .v-no-price { color:var(--red); font-style:italic; }
     .variety-item .v-density { color:var(--accent-light); }
+    .variety-item .v-group { font-size:9px; opacity:.7; }
 
     /* ── Mix list ────────────────────── */
     .mix-header {
@@ -185,6 +186,23 @@
     .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
     .legend-value { color:var(--text-dim); margin-left:auto; padding-left:12px; font-variant-numeric:tabular-nums; }
 
+    /* ── Group cards ─────────────────── */
+    .groups-grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+    .group-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      padding:12px 14px; flex:1; min-width:180px; position:relative; overflow:hidden;
+    }
+    .group-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .group-emoji { font-size:18px; margin-right:6px; }
+    .group-name { font-size:12px; font-weight:600; margin-bottom:6px; }
+    .group-stats { font-size:11px; color:var(--text-dim); line-height:1.6; }
+    .group-stats .val { color:var(--text); font-weight:600; }
+    .group-ca { font-size:16px; font-weight:700; margin-top:4px; }
+
+    /* ── Charts side by side ─────────── */
+    .charts-row { display:flex; gap:16px; flex-wrap:wrap; }
+    .charts-row .chart-section { flex:1; min-width:280px; margin-top:20px; }
+
     /* ── Scrollbar ────────────────────── */
     ::-webkit-scrollbar { width:5px; }
     ::-webkit-scrollbar-track { background:transparent; }
@@ -203,12 +221,27 @@
 <script>
 const COLORS = ['#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308','#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16'];
 
+// ─── Group colors (stable per group) ───
+const GROUP_COLORS = {
+  '✨ Agrumes de zeste': '#fbbf24',
+  '🧃 Agrumes de jus/chair acide': '#34d399',
+  '🍊 Agrumes de bouche (doux)': '#f97316',
+  '🌺 Agrumes d\'ornement/transformation': '#a78bfa',
+  '🌱 Porte-greffes/rustiques': '#6ee7b7'
+};
+const GROUP_ORDER = [
+  '✨ Agrumes de zeste',
+  '🧃 Agrumes de jus/chair acide',
+  '🍊 Agrumes de bouche (doux)',
+  '🌺 Agrumes d\'ornement/transformation',
+  '🌱 Porte-greffes/rustiques'
+];
+
 // ─── Vigor → Density mapping ───
 const VIGOR_DENSITY = {
   'Très faible': 1100, 'Faible': 830, 'Moyenne-': 625,
   'Moyenne': 500, 'Moyenne+': 500, 'Forte': 400, 'Très forte': 200
 };
-// Default density by Espece (best guess)
 const ESPECE_DENSITY = {
   'Satsuma':830,'Mandarine':625,'Mandarine/Clémentine':625,'Clémentine':625,'Clementine':625,
   'Tangor':625,'Tangelo':500,'Orange':500,'Citron':500,'Citron vert':500,'Lime':500,
@@ -219,11 +252,27 @@ const ESPECE_DENSITY = {
 };
 const DEFAULT_DENSITY = 500;
 
+// Fallback group mapping by Espece name (for standalone mode)
+const ESPECE_GROUP = {
+  'Yuzu':'✨ Agrumes de zeste','Bergamote':'✨ Agrumes de zeste','Citron caviar':'✨ Agrumes de zeste',
+  'Combava':'✨ Agrumes de zeste','Bigarade':'✨ Agrumes de zeste','Sudachi':'✨ Agrumes de zeste',
+  'Kabosu':'✨ Agrumes de zeste','Lumie':'✨ Agrumes de zeste','Main de Bouddha':'✨ Agrumes de zeste',
+  'Citron':'🧃 Agrumes de jus/chair acide','Lime':'🧃 Agrumes de jus/chair acide',
+  'Citron vert':'🧃 Agrumes de jus/chair acide','Limequat':'🧃 Agrumes de jus/chair acide',
+  'Orange':'🍊 Agrumes de bouche (doux)','Mandarine':'🍊 Agrumes de bouche (doux)',
+  'Mandarine/Clémentine':'🍊 Agrumes de bouche (doux)','Clémentine':'🍊 Agrumes de bouche (doux)',
+  'Satsuma':'🍊 Agrumes de bouche (doux)','Pomelo':'🍊 Agrumes de bouche (doux)',
+  'Pamplemousse':'🍊 Agrumes de bouche (doux)','Kumquat':'🍊 Agrumes de bouche (doux)',
+  'Tangelo':'🍊 Agrumes de bouche (doux)','Tangor':'🍊 Agrumes de bouche (doux)',
+  'Cédrat':'🌺 Agrumes d\'ornement/transformation','Calamondin':'🌺 Agrumes d\'ornement/transformation',
+  'Poncirus':'🌱 Porte-greffes/rustiques','Papeda':'🌱 Porte-greffes/rustiques'
+};
+
 // ─── State ───
 let S = {
   varieties: [], scenarios: [], jardins: [], mixRecords: [],
   activeScenario: 'normal',
-  mix: [],       // { NocoDB_Id, parts }  ← NEW: parts instead of pct
+  mix: [],
   searchQuery: '',
   loadedJardinId: null, saveName: ''
 };
@@ -239,6 +288,10 @@ function getScenario() {
 function getDensity(v) {
   if (v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
   return ESPECE_DENSITY[v.Espece] || DEFAULT_DENSITY;
+}
+
+function getGroup(v) {
+  return v.Groupe_commercial || ESPECE_GROUP[v.Espece] || '';
 }
 
 // ─── Parts → % helper ───
@@ -262,6 +315,7 @@ function compute() {
     const ca = yieldKg * prixEff;
     return {
       NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
+      Groupe: getGroup(v),
       parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca,
       caPerTree: nbArbres > 0 ? ca / nbArbres : 0
     };
@@ -270,7 +324,23 @@ function compute() {
   const totalYield = rows.reduce((s,r) => s+r.yieldKg, 0);
   const totalTrees = rows.reduce((s,r) => s+r.nbArbres, 0);
   const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
-  return { rows, totalCA, totalYield, totalTrees, avgPriceKg };
+
+  // Aggregate by group
+  const groupMap = {};
+  rows.forEach(r => {
+    const g = r.Groupe || 'Autre';
+    if (!groupMap[g]) groupMap[g] = { name: g, ca: 0, yieldKg: 0, nbArbres: 0, pct: 0, varieties: 0 };
+    groupMap[g].ca += r.ca;
+    groupMap[g].yieldKg += r.yieldKg;
+    groupMap[g].nbArbres += r.nbArbres;
+    groupMap[g].pct += r.pct;
+    groupMap[g].varieties += 1;
+  });
+  const groups = GROUP_ORDER.filter(g => groupMap[g]).map(g => groupMap[g]);
+  // Add any groups not in ORDER
+  Object.keys(groupMap).forEach(g => { if (!GROUP_ORDER.includes(g)) groups.push(groupMap[g]); });
+
+  return { rows, totalCA, totalYield, totalTrees, avgPriceKg, groups };
 }
 
 // ─── Render ───
@@ -283,7 +353,7 @@ function render() {
   const inMix = new Set(S.mix.map(m => m.NocoDB_Id));
   const filtered = q.length >= 2
     ? S.varieties.filter(v => !inMix.has(v.NocoDB_Id) &&
-        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q))
+        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || getGroup(v).toLowerCase().includes(q))
       ).slice(0, 25)
     : [];
 
@@ -317,14 +387,18 @@ function render() {
     <div class="main">
       <div class="panel-left">
         <div class="search-box">
-          <input type="text" class="search-input" placeholder="Rechercher une variété..." value="${S.searchQuery}"
+          <input type="text" class="search-input" placeholder="Rechercher une variété ou un groupe..." value="${S.searchQuery}"
             oninput="S.searchQuery=this.value;render();this.focus()" id="searchInput">
         </div>
         <div class="variety-dropdown ${filtered.length>0?'open':''}">
           ${filtered.map(v => {
             const d = getDensity(v);
+            const g = getGroup(v);
             return `<div class="variety-item" onclick="addVariety(${v.NocoDB_Id})">
-              <div><span class="v-name">${v.Variete}</span><span class="v-espece">${v.Espece}</span></div>
+              <div>
+                <span class="v-name">${v.Variete}</span><span class="v-espece">${v.Espece}</span>
+                ${g ? `<span class="v-group"> · ${g}</span>` : ''}
+              </div>
               <div class="v-meta">
                 <span class="v-density">${d}/ha</span>
                 <span class="v-yield">${fmt(v.Rendement_cible_kg)} kg</span>
@@ -347,10 +421,11 @@ function render() {
               const d = getDensity(v);
               const pct = getPct(m);
               const nb = Math.round(d * pct / 100);
+              const g = getGroup(v);
               return `<div class="mix-row">
                 <div class="mix-info">
                   <div class="mix-name">${v.Variete}</div>
-                  <div class="mix-espece">${v.Espece} · ${d}/ha · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
+                  <div class="mix-espece">${g ? g+' · ' : ''}${v.Espece} · ${d}/ha · ${fmt(v.Rendement_cible_kg)} kg · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
                 </div>
                 <div class="mix-controls">
                   <span class="mix-trees">${nb} arb.</span>
@@ -379,6 +454,7 @@ function render() {
 
 function renderResults(res) {
   const maxCA = Math.max(...res.rows.map(r=>r.ca),1);
+  const maxGroupCA = Math.max(...res.groups.map(g=>g.ca),1);
   return `<div class="results-section">
     <div class="kpi-grid">
       <div class="kpi-card ca">
@@ -402,7 +478,9 @@ function renderResults(res) {
       </div>
     </div>
 
-    <div class="breakdown-title">Détail par variété</div>
+    ${renderGroupSection(res)}
+
+    <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
     <table class="breakdown-table">
       <thead><tr>
         <th>Variété</th><th class="r">Parts</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
@@ -428,17 +506,34 @@ function renderResults(res) {
       </tbody>
     </table>
 
-    <div class="chart-section">
-      <div class="breakdown-title">Répartition du CA</div>
-      <div class="chart-container">
-        <div class="donut-wrap">
-          ${renderDonut(res)}
-          <div class="donut-legend">
-            ${res.rows.map((r,i) => `<div class="legend-item">
-              <span class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></span>
-              <span>${r.Variete}</span>
-              <span class="legend-value">${res.totalCA>0?fmt(r.ca/res.totalCA*100,1):0}%</span>
-            </div>`).join('')}
+    <div class="charts-row">
+      <div class="chart-section">
+        <div class="breakdown-title">CA par variété</div>
+        <div class="chart-container">
+          <div class="donut-wrap">
+            ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.ca})), res.totalCA, COLORS)}
+            <div class="donut-legend">
+              ${res.rows.map((r,i) => `<div class="legend-item">
+                <span class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></span>
+                <span>${r.Variete}</span>
+                <span class="legend-value">${res.totalCA>0?fmt(r.ca/res.totalCA*100,1):0}%</span>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-section">
+        <div class="breakdown-title">CA par groupe commercial</div>
+        <div class="chart-container">
+          <div class="donut-wrap">
+            ${renderDonut(res.groups.map(g=>({label:g.name,value:g.ca})), res.totalCA, res.groups.map(g=>GROUP_COLORS[g.name]||'#888'))}
+            <div class="donut-legend">
+              ${res.groups.map(g => `<div class="legend-item">
+                <span class="legend-dot" style="background:${GROUP_COLORS[g.name]||'#888'}"></span>
+                <span>${g.name}</span>
+                <span class="legend-value">${res.totalCA>0?fmt(g.ca/res.totalCA*100,1):0}%</span>
+              </div>`).join('')}
+            </div>
           </div>
         </div>
       </div>
@@ -446,20 +541,44 @@ function renderResults(res) {
   </div>`;
 }
 
-function renderDonut(res) {
-  if (res.totalCA===0) return '<div style="color:var(--text-dim)">—</div>';
+function renderGroupSection(res) {
+  if (res.groups.length === 0) return '';
+  return `
+    <div class="breakdown-title">Répartition par groupe commercial</div>
+    <div class="groups-grid">
+      ${res.groups.map(g => {
+        const color = GROUP_COLORS[g.name] || '#888';
+        const pctCA = res.totalCA > 0 ? (g.ca / res.totalCA * 100) : 0;
+        return `<div class="group-card" style="border-color:${color}40">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color}"></div>
+          <div class="group-name">${g.name}</div>
+          <div class="group-ca" style="color:${color}">${fmtEur(g.ca)}</div>
+          <div class="group-stats">
+            <span class="val">${fmt(pctCA,1)}%</span> du CA ·
+            <span class="val">${g.varieties}</span> var. ·
+            <span class="val">${fmt(g.nbArbres)}</span> arb. ·
+            <span class="val">${fmt(g.yieldKg)}</span> kg
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderDonut(items, total, colors) {
+  if (total===0) return '<div style="color:var(--text-dim)">—</div>';
   const cx=80,cy=80,R=70,r=42; let cum=-Math.PI/2; let paths='';
-  res.rows.forEach((row,i) => {
-    const f=row.ca/res.totalCA; if(f<=0) return;
+  items.forEach((item,i) => {
+    const f=item.value/total; if(f<=0) return;
     const a=f*Math.PI*2;
+    const col = Array.isArray(colors) ? (colors[i%colors.length]) : colors;
     const x1o=cx+R*Math.cos(cum),y1o=cy+R*Math.sin(cum),x1i=cx+r*Math.cos(cum),y1i=cy+r*Math.sin(cum);
     cum+=a;
     const x2o=cx+R*Math.cos(cum),y2o=cy+R*Math.sin(cum),x2i=cx+r*Math.cos(cum),y2i=cy+r*Math.sin(cum);
     const lg=a>Math.PI?1:0;
-    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${COLORS[i%COLORS.length]}" opacity=".85"/>`;
+    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${col}" opacity=".85"/>`;
   });
   return `<svg class="donut-svg" viewBox="0 0 160 160">${paths}
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">${fmtEur(res.totalCA)}</text>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">${fmtEur(total)}</text>
     <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text-dim)" font-size="9">/ hectare</text>
   </svg>`;
 }
@@ -507,14 +626,11 @@ async function loadSimulation() {
         const nb = mixData.Nb_arbres[i] || 0;
         const v = S.varieties.find(x=>x.NocoDB_Id===vid);
         if (v) {
-          // Convert Nb_arbres back to parts (approximate: use ratio relative to smallest)
           newMix.push({ NocoDB_Id: vid, _nb: nb });
         }
       }
     }
     if (newMix.length > 0) {
-      // Convert absolute tree counts to parts
-      // Find GCD-like proportional mapping
       const minNb = Math.min(...newMix.map(m=>m._nb).filter(n=>n>0)) || 1;
       S.mix = newMix.map(m => ({
         NocoDB_Id: m.NocoDB_Id,
@@ -598,6 +714,7 @@ async function loadFromGrist() {
         Variete:varData.Variete[i], Espece:varData.Espece[i],
         Rendement_cible_kg:varData.Rendement_cible_kg[i]||0,
         Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i]||0) : (varData.Densite_ha ? (varData.Densite_ha[i]||0) : 0)),
+        Groupe_commercial: varData.Groupe_commercial ? (varData.Groupe_commercial[i]||'') : '',
         avgPrix:0
       });
     }
@@ -633,10 +750,12 @@ function loadStandalone() {
     {id:3,Title:'Optimiste',Coeff_rendement:1,Coeff_prix:.9}
   ];
   S.varieties=[
-    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0},
-    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0},
-    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0},
-    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0}
+    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
+    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
+    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
+    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
+    {NocoDB_Id:1,Variete:'Owari',Espece:'Mandarine Satsuma',Rendement_cible_kg:75,avgPrix:3.5,Densite_ha:0,Groupe_commercial:'🍊 Agrumes de bouche (doux)'},
+    {NocoDB_Id:50,Variete:'Eureka',Espece:'Citron',Rendement_cible_kg:60,avgPrix:2.8,Densite_ha:0,Groupe_commercial:'🧃 Agrumes de jus/chair acide'}
   ];
   S.loaded=true; render();
 }
