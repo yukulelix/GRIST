@@ -221,21 +221,10 @@
 <script>
 const COLORS = ['#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308','#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16'];
 
-// ─── Group colors (stable per group) ───
-const GROUP_COLORS = {
-  '✨ Agrumes de zeste': '#fbbf24',
-  '🧃 Agrumes de jus/chair acide': '#34d399',
-  '🍊 Agrumes de bouche (doux)': '#f97316',
-  '🌺 Agrumes d\'ornement/transformation': '#a78bfa',
-  '🌱 Porte-greffes/rustiques': '#6ee7b7'
-};
-const GROUP_ORDER = [
-  '✨ Agrumes de zeste',
-  '🧃 Agrumes de jus/chair acide',
-  '🍊 Agrumes de bouche (doux)',
-  '🌺 Agrumes d\'ornement/transformation',
-  '🌱 Porte-greffes/rustiques'
-];
+// ─── Group colors & order (loaded dynamically from Grist, fallback for standalone) ───
+const CAT_PALETTE = ['#f97316','#fb923c','#ea580c','#facc15','#22c55e','#eab308','#f472b6','#14b8a6','#f59e0b','#10b981','#8b5cf6','#6366f1','#ec4899','#06b6d4','#84cc16','#e11d48'];
+let GROUP_COLORS = {};
+let GROUP_ORDER = [];
 
 // ─── Vigor → Density mapping ───
 const VIGOR_DENSITY = {
@@ -254,18 +243,22 @@ const DEFAULT_DENSITY = 500;
 
 // Fallback group mapping by Espece name (for standalone mode)
 const ESPECE_GROUP = {
-  'Yuzu':'✨ Agrumes de zeste','Bergamote':'✨ Agrumes de zeste','Citron caviar':'✨ Agrumes de zeste',
-  'Combava':'✨ Agrumes de zeste','Bigarade':'✨ Agrumes de zeste','Sudachi':'✨ Agrumes de zeste',
-  'Kabosu':'✨ Agrumes de zeste','Lumie':'✨ Agrumes de zeste','Main de Bouddha':'✨ Agrumes de zeste',
-  'Citron':'🧃 Agrumes de jus/chair acide','Lime':'🧃 Agrumes de jus/chair acide',
-  'Citron vert':'🧃 Agrumes de jus/chair acide','Limequat':'🧃 Agrumes de jus/chair acide',
-  'Orange':'🍊 Agrumes de bouche (doux)','Mandarine':'🍊 Agrumes de bouche (doux)',
-  'Mandarine/Clémentine':'🍊 Agrumes de bouche (doux)','Clémentine':'🍊 Agrumes de bouche (doux)',
-  'Satsuma':'🍊 Agrumes de bouche (doux)','Pomelo':'🍊 Agrumes de bouche (doux)',
-  'Pamplemousse':'🍊 Agrumes de bouche (doux)','Kumquat':'🍊 Agrumes de bouche (doux)',
-  'Tangelo':'🍊 Agrumes de bouche (doux)','Tangor':'🍊 Agrumes de bouche (doux)',
-  'Cédrat':'🌺 Agrumes d\'ornement/transformation','Calamondin':'🌺 Agrumes d\'ornement/transformation',
-  'Poncirus':'🌱 Porte-greffes/rustiques','Papeda':'🌱 Porte-greffes/rustiques'
+  'Orange':'🍊 Orangers','Orange sanguine':'🍊 Orangers',
+  'Bigarade':'🟠 Bigaradiers et bergamotiers','Bergamote':'🟠 Bigaradiers et bergamotiers',
+  'Mandarine/Clémentine':'🍊 Mandariniers','Mandarine Satsuma':'🍊 Mandariniers','Mandarine':'🍊 Mandariniers',
+  'Clémentine':'🍊 Mandariniers','Satsuma':'🍊 Mandariniers','Tangor':'🍊 Mandariniers',
+  'Tangelo':'🍊 Mandariniers','Tangelolo':'🍊 Mandariniers',
+  'Citron':'🍋 Citronniers',
+  'Lime':'🟢 Limettiers','Citron vert':'🟢 Limettiers','Limequat':'🟢 Limettiers',
+  'Cédrat':'🟡 Cédratiers','Main de Bouddha':'🟡 Cédratiers','Lumie':'🟡 Cédratiers',
+  'Pomelo':'🍈 Pomelos et pamplemoussiers','Pamplemousse':'🍈 Pomelos et pamplemoussiers','Orangelo':'🍈 Pomelos et pamplemoussiers',
+  'Yuzu':'🌿 Papédas et agrumes d\'Asie orientale','Combava':'🌿 Papédas et agrumes d\'Asie orientale',
+  'Sudachi':'🌿 Papédas et agrumes d\'Asie orientale','Kabosu':'🌿 Papédas et agrumes d\'Asie orientale',
+  'Papeda':'🌿 Papédas et agrumes d\'Asie orientale','Agrume japonais':'🌿 Papédas et agrumes d\'Asie orientale',
+  'Kumquat':'🟡 Kumquats et hybrides','Calamondin':'🟡 Kumquats et hybrides',
+  'Citron caviar':'🌱 Agrumes australiens','Microcitrus':'🌱 Agrumes australiens',
+  'Poncirus':'🌳 Porte-greffes et apparentés','Hybride':'🌳 Porte-greffes et apparentés',
+  'Citrus':'🌳 Porte-greffes et apparentés','Autre':'🌳 Porte-greffes et apparentés'
 };
 
 // ─── State ───
@@ -497,7 +490,7 @@ function renderResults(res) {
         </div>
       </div>
       <div class="chart-section">
-        <div class="breakdown-title">CA par groupe commercial</div>
+        <div class="breakdown-title">CA par catégorie botanique</div>
         <div class="chart-container">
           <div class="donut-wrap">
             ${renderDonut(res.groups.map(g=>({label:g.name,value:g.ca})), res.totalCA, res.groups.map(g=>GROUP_COLORS[g.name]||'#888'))}
@@ -544,7 +537,7 @@ function renderResults(res) {
 function renderGroupSection(res) {
   if (res.groups.length === 0) return '';
   return `
-    <div class="breakdown-title">Répartition par groupe commercial</div>
+    <div class="breakdown-title">Répartition par catégorie botanique</div>
     <div class="groups-grid">
       ${res.groups.map(g => {
         const color = GROUP_COLORS[g.name] || '#888';
@@ -701,11 +694,22 @@ async function loadJardins() {
 // ─── Data Loading ───
 async function loadFromGrist() {
   try {
-    const [varData, prxData, parData] = await Promise.all([
+    const [varData, prxData, parData, catData] = await Promise.all([
       grist.docApi.fetchTable('Varietes'),
       grist.docApi.fetchTable('Prix_Fruits'),
-      grist.docApi.fetchTable('Simulation_Parametres')
+      grist.docApi.fetchTable('Simulation_Parametres'),
+      grist.docApi.fetchTable('Categories')
     ]);
+
+    // Build GROUP_ORDER & GROUP_COLORS from Categories table
+    const cats = [];
+    for (let i=0;i<catData.id.length;i++) {
+      cats.push({nid: catData.NocoDB_Id[i], name: catData.Categorie[i]});
+    }
+    cats.sort((a,b) => a.nid - b.nid);
+    GROUP_ORDER = cats.map(c => c.name);
+    GROUP_COLORS = {};
+    cats.forEach((c,i) => { GROUP_COLORS[c.name] = CAT_PALETTE[i % CAT_PALETTE.length]; });
 
     const varieties = [];
     for (let i=0;i<varData.id.length;i++) {
@@ -714,7 +718,7 @@ async function loadFromGrist() {
         Variete:varData.Variete[i], Espece:varData.Espece[i],
         Rendement_cible_kg:varData.Rendement_cible_kg[i]||0,
         Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i]||0) : (varData.Densite_ha ? (varData.Densite_ha[i]||0) : 0)),
-        Groupe_commercial: varData.Groupe_commercial ? (varData.Groupe_commercial[i]||'') : '',
+        Groupe_commercial: varData.Categorie_ref ? (varData.Categorie_ref[i]||'') : (varData.Groupe_commercial ? (varData.Groupe_commercial[i]||'') : ''),
         avgPrix:0
       });
     }
@@ -750,13 +754,18 @@ function loadStandalone() {
     {id:3,Title:'Optimiste',Coeff_rendement:1,Coeff_prix:.9}
   ];
   S.varieties=[
-    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
-    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
-    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
-    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0,Groupe_commercial:'✨ Agrumes de zeste'},
-    {NocoDB_Id:1,Variete:'Owari',Espece:'Mandarine Satsuma',Rendement_cible_kg:75,avgPrix:3.5,Densite_ha:0,Groupe_commercial:'🍊 Agrumes de bouche (doux)'},
-    {NocoDB_Id:50,Variete:'Eureka',Espece:'Citron',Rendement_cible_kg:60,avgPrix:2.8,Densite_ha:0,Groupe_commercial:'🧃 Agrumes de jus/chair acide'}
+    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0,Groupe_commercial:'🌿 Papédas et agrumes d\'Asie orientale'},
+    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0,Groupe_commercial:'🌱 Agrumes australiens'},
+    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0,Groupe_commercial:'🟠 Bigaradiers et bergamotiers'},
+    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0,Groupe_commercial:'🟡 Cédratiers'},
+    {NocoDB_Id:1,Variete:'Owari',Espece:'Mandarine Satsuma',Rendement_cible_kg:75,avgPrix:3.5,Densite_ha:0,Groupe_commercial:'🍊 Mandariniers'},
+    {NocoDB_Id:50,Variete:'Eureka',Espece:'Citron',Rendement_cible_kg:60,avgPrix:2.8,Densite_ha:0,Groupe_commercial:'🍋 Citronniers'}
   ];
+  // Standalone fallback: set GROUP_ORDER & GROUP_COLORS from ESPECE_GROUP
+  const standaloneGroups = [...new Set(Object.values(ESPECE_GROUP))];
+  GROUP_ORDER = standaloneGroups;
+  GROUP_COLORS = {};
+  standaloneGroups.forEach((g,i) => { GROUP_COLORS[g] = CAT_PALETTE[i % CAT_PALETTE.length]; });
   S.loaded=true; render();
 }
 
