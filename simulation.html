@@ -484,14 +484,18 @@
                       </tr>
                     </template>
                     <tr class="total-row">
-                      <td>Total</td>
+                      <td>Total / Moy.</td>
                       <td class="r" x-text="totalParts"></td>
                       <td class="r">100%</td>
-                      <td></td>
+                      <td class="r" x-text="fmt(computed.avgDensity)" style="color:var(--accent-light)"></td>
                       <td class="r" x-text="fmt(computed.totalTrees)"></td>
-                      <td></td><td></td><td></td>
+                      <td class="r" x-text="`${fmt(computed.totalYield)} kg`"></td>
+                      <td class="r" x-text="`${fmt(computed.avgRendEff,1)} kg`"></td>
+                      <td class="r" x-text="`${fmt(computed.avgPrixEff,2)} €`"></td>
                       <td class="r" style="font-size:13px" x-text="fmtEur(computed.totalCA)"></td>
-                      <td></td><td></td><td></td>
+                      <td class="r" x-text="fmtCompact(computed.avgRentaHa)"></td>
+                      <td class="r" x-text="computed.avgPlantPrice ? `${fmt(computed.avgPlantPrice,2)} €` : '—'"></td>
+                      <td></td>
                     </tr>
                   </tbody>
                 </table>
@@ -605,6 +609,13 @@ function simulator() {
       const totalYield = rows.reduce((s, r) => s + r.yieldKg, 0);
       const totalTrees = rows.reduce((s, r) => s + r.nbArbres, 0);
       const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
+      const avgDensity = totalParts > 0 ? rows.reduce((s, r) => s + r.density * r.pct / 100, 0) : 0;
+      const avgRendEff = totalTrees > 0 ? totalYield / totalTrees : 0;
+      const avgPrixEff = totalYield > 0 ? totalCA / totalYield : 0;
+      const avgRentaHa = totalParts > 0 ? rows.reduce((s, r) => s + r.rentaHa * r.pct / 100, 0) : 0;
+      const plantPriceRows = rows.filter(r => r.minPlantPrice);
+      const avgPlantPrice = plantPriceRows.length > 0 ? plantPriceRows.reduce((s, r) => s + r.minPlantPrice, 0) / plantPriceRows.length : null;
+      const totalInvestPlants = rows.reduce((s, r) => s + (r.minPlantPrice ? r.nbArbres * r.minPlantPrice : 0), 0);
 
       const groupMap = {};
       rows.forEach(r => {
@@ -619,7 +630,7 @@ function simulator() {
       const groups = this.GROUP_ORDER.filter(g => groupMap[g]).map(g => groupMap[g]);
       Object.keys(groupMap).forEach(g => { if (!this.GROUP_ORDER.includes(g)) groups.push(groupMap[g]); });
 
-      return { rows, totalCA, totalYield, totalTrees, avgPriceKg, groups };
+      return { rows, totalCA, totalYield, totalTrees, avgPriceKg, avgDensity, avgRendEff, avgPrixEff, avgRentaHa, avgPlantPrice, totalInvestPlants, groups };
     },
 
     get sortedMix() {
