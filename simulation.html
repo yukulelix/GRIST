@@ -176,32 +176,32 @@
     .bar-bg { height:7px; border-radius:3px; background:var(--bg); overflow:hidden; }
     .bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
 
-    /* ── Donut ────────────────────────── */
-    .chart-section { margin-top:20px; }
-    .chart-container { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
-    .donut-wrap { display:flex; align-items:center; gap:24px; justify-content:center; flex-wrap:wrap; }
-    .donut-svg { width:160px; height:160px; }
-    .donut-legend { display:flex; flex-direction:column; gap:4px; }
-    .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; }
-    .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
-    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:12px; font-variant-numeric:tabular-nums; }
-
-    /* ── Group cards ─────────────────── */
-    .groups-grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
-    .group-card {
-      background:var(--surface); border:1px solid var(--border); border-radius:10px;
-      padding:12px 14px; flex:1; min-width:180px; position:relative; overflow:hidden;
+    /* ── Horizontal bar charts ────────── */
+    .hbar-section { margin-top:16px; }
+    .hbar-list { display:flex; flex-direction:column; gap:6px; }
+    .hbar-row {
+      display:flex; align-items:center; gap:8px; padding:5px 0; position:relative; cursor:default;
     }
-    .group-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
-    .group-emoji { font-size:18px; margin-right:6px; }
-    .group-name { font-size:12px; font-weight:600; margin-bottom:6px; }
-    .group-stats { font-size:11px; color:var(--text-dim); line-height:1.6; }
-    .group-stats .val { color:var(--text); font-weight:600; }
-    .group-ca { font-size:16px; font-weight:700; margin-top:4px; }
+    .hbar-label { font-size:11px; font-weight:500; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hbar-label-cat { width:180px; flex-shrink:0; }
+    .hbar-label-var { width:140px; flex-shrink:0; }
+    .hbar-track { flex:1; height:18px; background:var(--bg); border-radius:4px; overflow:hidden; position:relative; min-width:60px; }
+    .hbar-fill { height:100%; border-radius:4px; transition:width .3s ease; display:flex; align-items:center; min-width:0; }
+    .hbar-fill-text { font-size:9px; font-weight:600; color:#fff; padding-left:6px; white-space:nowrap; opacity:.9; }
+    .hbar-value { font-size:11px; font-weight:600; min-width:70px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .hbar-pct { font-size:10px; color:var(--text-dim); min-width:40px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
 
-    /* ── Charts side by side ─────────── */
-    .charts-row { display:flex; gap:16px; flex-wrap:wrap; }
-    .charts-row .chart-section { flex:1; min-width:280px; margin-top:20px; }
+    /* Tooltip */
+    .hbar-row .hbar-tooltip {
+      display:none; position:absolute; left:50%; top:100%; transform:translateX(-50%);
+      background:#1e2030; border:1px solid var(--border); border-radius:8px; padding:8px 12px;
+      z-index:100; white-space:nowrap; font-size:11px; color:var(--text); box-shadow:0 4px 16px rgba(0,0,0,.4);
+      pointer-events:none;
+    }
+    .hbar-row:hover .hbar-tooltip { display:block; }
+    .hbar-tooltip .tt-title { font-weight:600; margin-bottom:4px; }
+    .hbar-tooltip .tt-line { color:var(--text-dim); line-height:1.6; }
+    .hbar-tooltip .tt-val { color:var(--text); font-weight:600; }
 
     /* ── Scrollbar ────────────────────── */
     ::-webkit-scrollbar { width:5px; }
@@ -471,40 +471,8 @@ function renderResults(res) {
       </div>
     </div>
 
-    ${renderGroupSection(res)}
-
-    <div class="charts-row">
-      <div class="chart-section">
-        <div class="breakdown-title">CA par variété</div>
-        <div class="chart-container">
-          <div class="donut-wrap">
-            ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.ca})), res.totalCA, COLORS)}
-            <div class="donut-legend">
-              ${res.rows.map((r,i) => `<div class="legend-item">
-                <span class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></span>
-                <span>${r.Variete}</span>
-                <span class="legend-value">${res.totalCA>0?fmt(r.ca/res.totalCA*100,1):0}%</span>
-              </div>`).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="chart-section">
-        <div class="breakdown-title">CA par catégorie botanique</div>
-        <div class="chart-container">
-          <div class="donut-wrap">
-            ${renderDonut(res.groups.map(g=>({label:g.name,value:g.ca})), res.totalCA, res.groups.map(g=>GROUP_COLORS[g.name]||'#888'))}
-            <div class="donut-legend">
-              ${res.groups.map(g => `<div class="legend-item">
-                <span class="legend-dot" style="background:${GROUP_COLORS[g.name]||'#888'}"></span>
-                <span>${g.name}</span>
-                <span class="legend-value">${res.totalCA>0?fmt(g.ca/res.totalCA*100,1):0}%</span>
-              </div>`).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    ${renderCategoryBars(res)}
+    ${renderVarietyBars(res)}
 
     <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
     <table class="breakdown-table">
@@ -534,46 +502,67 @@ function renderResults(res) {
   </div>`;
 }
 
-function renderGroupSection(res) {
+function renderCategoryBars(res) {
   if (res.groups.length === 0) return '';
+  const maxCA = Math.max(...res.groups.map(g=>g.ca));
   return `
-    <div class="breakdown-title">Répartition par catégorie botanique</div>
-    <div class="groups-grid">
-      ${res.groups.map(g => {
-        const color = GROUP_COLORS[g.name] || '#888';
-        const pctCA = res.totalCA > 0 ? (g.ca / res.totalCA * 100) : 0;
-        return `<div class="group-card" style="border-color:${color}40">
-          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color}"></div>
-          <div class="group-name">${g.name}</div>
-          <div class="group-ca" style="color:${color}">${fmtEur(g.ca)}</div>
-          <div class="group-stats">
-            <span class="val">${fmt(pctCA,1)}%</span> du CA ·
-            <span class="val">${g.varieties}</span> var. ·
-            <span class="val">${fmt(g.nbArbres)}</span> arb. ·
-            <span class="val">${fmt(g.yieldKg)}</span> kg
-          </div>
-        </div>`;
-      }).join('')}
+    <div class="hbar-section">
+      <div class="breakdown-title">Répartition par catégorie botanique</div>
+      <div class="hbar-list">
+        ${res.groups.map(g => {
+          const color = GROUP_COLORS[g.name] || '#888';
+          const pctCA = res.totalCA > 0 ? (g.ca / res.totalCA * 100) : 0;
+          const barW = maxCA > 0 ? (g.ca / maxCA * 100) : 0;
+          return `<div class="hbar-row">
+            <div class="hbar-label hbar-label-cat">${g.name}</div>
+            <div class="hbar-track"><div class="hbar-fill" style="width:${barW.toFixed(1)}%;background:${color}">
+              ${barW > 15 ? `<span class="hbar-fill-text">${fmtEur(g.ca)}</span>` : ''}
+            </div></div>
+            ${barW <= 15 ? `<span class="hbar-value" style="color:${color}">${fmtEur(g.ca)}</span>` : `<span class="hbar-value"></span>`}
+            <span class="hbar-pct">${fmt(pctCA,1)}%</span>
+            <div class="hbar-tooltip">
+              <div class="tt-title">${g.name}</div>
+              <div class="tt-line"><span class="tt-val">${fmtEur(g.ca)}</span> — ${fmt(pctCA,1)}% du CA</div>
+              <div class="tt-line"><span class="tt-val">${g.varieties}</span> variété${g.varieties>1?'s':''} · <span class="tt-val">${fmt(g.nbArbres)}</span> arbres</div>
+              <div class="tt-line"><span class="tt-val">${fmt(g.yieldKg)}</span> kg de production</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
 }
 
-function renderDonut(items, total, colors) {
-  if (total===0) return '<div style="color:var(--text-dim)">—</div>';
-  const cx=80,cy=80,R=70,r=42; let cum=-Math.PI/2; let paths='';
-  items.forEach((item,i) => {
-    const f=item.value/total; if(f<=0) return;
-    const a=f*Math.PI*2;
-    const col = Array.isArray(colors) ? (colors[i%colors.length]) : colors;
-    const x1o=cx+R*Math.cos(cum),y1o=cy+R*Math.sin(cum),x1i=cx+r*Math.cos(cum),y1i=cy+r*Math.sin(cum);
-    cum+=a;
-    const x2o=cx+R*Math.cos(cum),y2o=cy+R*Math.sin(cum),x2i=cx+r*Math.cos(cum),y2i=cy+r*Math.sin(cum);
-    const lg=a>Math.PI?1:0;
-    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${col}" opacity=".85"/>`;
-  });
-  return `<svg class="donut-svg" viewBox="0 0 160 160">${paths}
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">${fmtEur(total)}</text>
-    <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text-dim)" font-size="9">/ hectare</text>
-  </svg>`;
+function renderVarietyBars(res) {
+  if (res.rows.length === 0) return '';
+  const maxCA = Math.max(...res.rows.map(r=>r.ca));
+  return `
+    <div class="hbar-section">
+      <div class="breakdown-title">Répartition par variété</div>
+      <div class="hbar-list">
+        ${res.rows.map((r,i) => {
+          const color = COLORS[i % COLORS.length];
+          const pctCA = res.totalCA > 0 ? (r.ca / res.totalCA * 100) : 0;
+          const barW = maxCA > 0 ? (r.ca / maxCA * 100) : 0;
+          const group = getGroup(S.varieties.find(v=>v.NocoDB_Id===r.NocoDB_Id)||{});
+          return `<div class="hbar-row">
+            <div class="hbar-label hbar-label-var" title="${r.Variete}">${r.Variete}</div>
+            <div class="hbar-track"><div class="hbar-fill" style="width:${barW.toFixed(1)}%;background:${color}">
+              ${barW > 15 ? `<span class="hbar-fill-text">${fmtEur(r.ca)}</span>` : ''}
+            </div></div>
+            ${barW <= 15 ? `<span class="hbar-value" style="color:${color}">${fmtEur(r.ca)}</span>` : `<span class="hbar-value"></span>`}
+            <span class="hbar-pct">${fmt(pctCA,1)}%</span>
+            <div class="hbar-tooltip">
+              <div class="tt-title">${r.Variete}</div>
+              <div class="tt-line" style="color:var(--text-dim);font-size:10px">${r.Espece} · ${group}</div>
+              <div class="tt-line"><span class="tt-val">${fmtEur(r.ca)}</span> — ${fmt(pctCA,1)}% du CA</div>
+              <div class="tt-line"><span class="tt-val">${fmt(r.nbArbres)}</span> arbres · densité ${r.density}/ha</div>
+              <div class="tt-line">Rdt: <span class="tt-val">${fmt(r.rendEff,1)} kg</span> · Prix: <span class="tt-val">${fmt(r.prixEff,2)} €/kg</span></div>
+              <div class="tt-line">Parts: <span class="tt-val">${r.parts}</span> (${fmt(r.pct,1)}%)</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 
 // ─── Actions ───
