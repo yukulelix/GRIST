@@ -60,7 +60,7 @@
     /* ── Layout ──────────────────────── */
     .main { display:flex; flex:1; overflow:hidden; min-height:0; }
     .panel-left {
-      width:380px; min-width:300px; max-width:40vw; border-right:1px solid var(--border);
+      width:400px; min-width:320px; max-width:45vw; border-right:1px solid var(--border);
       display:flex; flex-direction:column; background:var(--surface); flex-shrink:0;
     }
     .panel-right { flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0; }
@@ -98,9 +98,7 @@
       display:flex; justify-content:space-between; align-items:center;
     }
     .mix-header h3 { font-size:12px; font-weight:600; }
-    .mix-total-pct { font-size:12px; font-weight:600; }
-    .mix-total-pct.over { color:var(--red); }
-    .mix-total-pct.ok { color:var(--green); }
+    .mix-total-parts { font-size:11px; color:var(--text-dim); }
     .mix-list { flex:1; overflow-y:auto; }
     .mix-row {
       display:flex; align-items:center; gap:6px; padding:8px 14px;
@@ -111,12 +109,25 @@
     .mix-row .mix-name { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .mix-row .mix-espece { font-size:10px; color:var(--text-dim); }
     .mix-controls { display:flex; align-items:center; gap:4px; flex-shrink:0; }
-    .mix-pct-input {
-      width:44px; text-align:right; background:var(--bg); border:1px solid var(--border);
-      border-radius:5px; color:var(--text); padding:4px 5px; font-size:12px; outline:none;
+
+    /* Parts input with +/- buttons */
+    .parts-group { display:flex; align-items:center; gap:0; }
+    .parts-btn {
+      width:22px; height:24px; border:1px solid var(--border); background:var(--bg);
+      color:var(--text-dim); font-size:14px; cursor:pointer; display:flex;
+      align-items:center; justify-content:center; transition:all .15s; line-height:1;
     }
-    .mix-pct-input:focus { border-color:var(--accent); }
-    .mix-pct-unit { font-size:11px; color:var(--text-dim); }
+    .parts-btn:hover { color:var(--accent); border-color:var(--accent); background:rgba(108,99,255,.1); }
+    .parts-btn:first-child { border-radius:5px 0 0 5px; }
+    .parts-btn:last-child { border-radius:0 5px 5px 0; }
+    .parts-input {
+      width:36px; text-align:center; background:var(--bg); border:1px solid var(--border);
+      border-left:none; border-right:none;
+      color:var(--text); padding:3px 2px; font-size:13px; font-weight:600; outline:none; height:24px;
+    }
+    .parts-input:focus { border-color:var(--accent); }
+
+    .mix-pct { font-size:11px; color:var(--green); min-width:38px; text-align:right; font-weight:500; }
     .mix-trees { font-size:10px; color:var(--accent-light); min-width:50px; text-align:right; }
     .mix-remove {
       background:none; border:none; color:#555; cursor:pointer;
@@ -211,7 +222,9 @@ const DEFAULT_DENSITY = 500;
 // ─── State ───
 let S = {
   varieties: [], scenarios: [], jardins: [], mixRecords: [],
-  activeScenario: 'normal', mix: [], searchQuery: '',
+  activeScenario: 'normal',
+  mix: [],       // { NocoDB_Id, parts }  ← NEW: parts instead of pct
+  searchQuery: '',
   loadedJardinId: null, saveName: ''
 };
 
@@ -224,19 +237,24 @@ function getScenario() {
 }
 
 function getDensity(v) {
-  // If variety has its own density, use it
   if (v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
   return ESPECE_DENSITY[v.Espece] || DEFAULT_DENSITY;
 }
 
+// ─── Parts → % helper ───
+function getTotalParts() { return S.mix.reduce((s,m) => s + m.parts, 0); }
+function getPct(m) { const t = getTotalParts(); return t > 0 ? (m.parts / t * 100) : 0; }
+
 // ─── Compute ───
 function compute() {
   const sc = getScenario();
+  const totalParts = getTotalParts();
   const rows = S.mix.map(m => {
     const v = S.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
     if (!v) return null;
     const density = getDensity(v);
-    const surfaceFrac = m.pct / 100; // fraction of 1 ha
+    const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
+    const surfaceFrac = pct / 100;
     const nbArbres = Math.round(density * surfaceFrac);
     const rendEff = v.Rendement_cible_kg * sc.Coeff_rendement;
     const prixEff = v.avgPrix * sc.Coeff_prix;
@@ -244,7 +262,7 @@ function compute() {
     const ca = yieldKg * prixEff;
     return {
       NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
-      pct: m.pct, density, nbArbres, rendEff, prixEff, yieldKg, ca,
+      parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca,
       caPerTree: nbArbres > 0 ? ca / nbArbres : 0
     };
   }).filter(Boolean);
@@ -259,8 +277,7 @@ function compute() {
 function render() {
   const app = document.getElementById('app');
   const sc = getScenario();
-  const totalPct = S.mix.reduce((s,m) => s+m.pct, 0);
-  const pctOk = Math.abs(totalPct - 100) < 0.05;
+  const totalParts = getTotalParts();
 
   const q = S.searchQuery.toLowerCase();
   const inMix = new Set(S.mix.map(m => m.NocoDB_Id));
@@ -319,7 +336,7 @@ function render() {
 
         <div class="mix-header">
           <h3>Mix variétal · ${S.mix.length} var.</h3>
-          <span class="mix-total-pct ${pctOk?'ok':'over'}">${fmt(totalPct,1)}% ${pctOk?'✓':'⚠'}</span>
+          <span class="mix-total-parts">${totalParts} part${totalParts>1?'s':''} au total</span>
         </div>
 
         <div class="mix-list">
@@ -328,7 +345,8 @@ function render() {
               const v = S.varieties.find(x => x.NocoDB_Id===m.NocoDB_Id);
               if (!v) return '';
               const d = getDensity(v);
-              const nb = Math.round(d * m.pct / 100);
+              const pct = getPct(m);
+              const nb = Math.round(d * pct / 100);
               return `<div class="mix-row">
                 <div class="mix-info">
                   <div class="mix-name">${v.Variete}</div>
@@ -336,9 +354,13 @@ function render() {
                 </div>
                 <div class="mix-controls">
                   <span class="mix-trees">${nb} arb.</span>
-                  <input type="number" class="mix-pct-input" value="${m.pct}" min="0" max="100" step="0.5"
-                    onchange="updatePct(${i},parseFloat(this.value)||0)">
-                  <span class="mix-pct-unit">%</span>
+                  <span class="mix-pct">${fmt(pct,1)}%</span>
+                  <div class="parts-group">
+                    <button class="parts-btn" onclick="changeParts(${i},-1)">−</button>
+                    <input type="number" class="parts-input" value="${m.parts}" min="1" max="99"
+                      onchange="setParts(${i},parseInt(this.value)||1)">
+                    <button class="parts-btn" onclick="changeParts(${i},1)">+</button>
+                  </div>
                   <button class="mix-remove" onclick="removeVariety(${i})">&times;</button>
                 </div>
               </div>`;
@@ -383,12 +405,13 @@ function renderResults(res) {
     <div class="breakdown-title">Détail par variété</div>
     <table class="breakdown-table">
       <thead><tr>
-        <th>Variété</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
-        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part</th>
+        <th>Variété</th><th class="r">Parts</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
+        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part CA</th>
       </tr></thead>
       <tbody>
         ${res.rows.map(r => `<tr>
           <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:10px">${r.Espece}</span></td>
+          <td class="r" style="font-weight:600">${r.parts}</td>
           <td class="r">${fmt(r.pct,1)}%</td>
           <td class="r" style="color:var(--accent-light)">${r.density}</td>
           <td class="r">${fmt(r.nbArbres)}</td>
@@ -398,7 +421,7 @@ function renderResults(res) {
           <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(r.ca/maxCA*100).toFixed(1)}%"></div></div></td>
         </tr>`).join('')}
         <tr class="total-row">
-          <td>Total</td><td class="r">${fmt(S.mix.reduce((s,m)=>s+m.pct,0),1)}%</td>
+          <td>Total</td><td class="r">${getTotalParts()}</td><td class="r">100%</td>
           <td></td><td class="r">${fmt(res.totalTrees)}</td><td></td><td></td>
           <td class="r" style="font-size:13px">${fmtEur(res.totalCA)}</td><td></td>
         </tr>
@@ -446,27 +469,27 @@ function setScenario(s) { S.activeScenario=s; render(); }
 
 function addVariety(nocoId) {
   if (S.mix.find(m=>m.NocoDB_Id===nocoId)) return;
-  const n=S.mix.length+1;
-  const ep=Math.round(100/n*10)/10;
-  S.mix.forEach(m=>m.pct=ep);
-  S.mix.push({NocoDB_Id:nocoId,pct:ep});
-  const diff=100-S.mix.reduce((s,m)=>s+m.pct,0);
-  S.mix[S.mix.length-1].pct=Math.round((S.mix[S.mix.length-1].pct+diff)*10)/10;
+  S.mix.push({ NocoDB_Id: nocoId, parts: 1 });
   S.searchQuery=''; render();
 }
 
 function removeVariety(idx) {
   S.mix.splice(idx,1);
-  if(S.mix.length>0){
-    const ep=Math.round(100/S.mix.length*10)/10;
-    S.mix.forEach(m=>m.pct=ep);
-    const diff=100-S.mix.reduce((s,m)=>s+m.pct,0);
-    S.mix[S.mix.length-1].pct=Math.round((S.mix[S.mix.length-1].pct+diff)*10)/10;
-  }
   render();
 }
 
-function updatePct(idx,val) { S.mix[idx].pct=val; render(); }
+function changeParts(idx, delta) {
+  const newVal = S.mix[idx].parts + delta;
+  if (newVal >= 1 && newVal <= 99) {
+    S.mix[idx].parts = newVal;
+    render();
+  }
+}
+
+function setParts(idx, val) {
+  S.mix[idx].parts = Math.max(1, Math.min(99, val));
+  render();
+}
 
 function onLoadSelect(val) { S.loadedJardinId = val ? parseInt(val) : null; }
 
@@ -478,22 +501,25 @@ async function loadSimulation() {
     const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
     const n = mixData.id.length;
     const newMix = [];
-    // Find all mix rows for this jardin
     for (let i=0; i<n; i++) {
       if (mixData.Jardins_id[i] === S.jardins.find(j=>j.id===jid)?.NocoDB_Id) {
         const vid = mixData.Varietes_id[i];
         const nb = mixData.Nb_arbres[i] || 0;
-        // Convert Nb_arbres back to % using density
         const v = S.varieties.find(x=>x.NocoDB_Id===vid);
         if (v) {
-          const d = getDensity(v);
-          const pct = d>0 ? Math.round(nb/d*1000)/10 : 10;
-          newMix.push({NocoDB_Id: vid, pct});
+          // Convert Nb_arbres back to parts (approximate: use ratio relative to smallest)
+          newMix.push({ NocoDB_Id: vid, _nb: nb });
         }
       }
     }
-    if (newMix.length>0) {
-      S.mix = newMix;
+    if (newMix.length > 0) {
+      // Convert absolute tree counts to parts
+      // Find GCD-like proportional mapping
+      const minNb = Math.min(...newMix.map(m=>m._nb).filter(n=>n>0)) || 1;
+      S.mix = newMix.map(m => ({
+        NocoDB_Id: m.NocoDB_Id,
+        parts: Math.max(1, Math.round(m._nb / minNb))
+      }));
       const j = S.jardins.find(j=>j.id===jid);
       S.saveName = j ? j.Title : '';
       render();
@@ -506,29 +532,25 @@ async function saveSimulation() {
   if (S.mix.length===0) return;
   try {
     const sc = getScenario();
-    // Find or pick the scenario param id
     const paramNocId = S.scenarios.findIndex(s=>s===sc) + 1;
-
-    // Get next NocoDB_Id for jardins
     const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
     const maxJardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
 
-    // Create the jardin record
     const tJardins = grist.getTable('Simulation_Jardins');
     const jardinIds = await tJardins.create([{
       fields: { NocoDB_Id: maxJardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
     }]);
 
-    // Get next NocoDB_Id for mix
     const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
     let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
 
-    // Create mix records
+    const totalParts = getTotalParts();
     const tMix = grist.getTable('Simulation_Mix_Varietal');
     const mixRows = S.mix.map((m,i) => {
       const v = S.varieties.find(x=>x.NocoDB_Id===m.NocoDB_Id);
       const d = getDensity(v);
-      const nb = Math.round(d * m.pct / 100);
+      const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
+      const nb = Math.round(d * pct / 100);
       maxMixNoco++;
       return {
         fields: {
@@ -542,7 +564,6 @@ async function saveSimulation() {
     });
     await tMix.create(mixRows);
 
-    // Refresh jardins list
     await loadJardins();
     S.saveName = name;
     S.loadedJardinId = jardinIds[0];
