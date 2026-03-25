@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulateur Jardin d'Agrumes</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js" defer></script>
   <style>
     :root {
       --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
@@ -176,7 +177,9 @@
     .breakdown-table th {
       text-align:left; padding:6px 8px; font-size:9px; text-transform:uppercase;
       color:var(--text-dim); letter-spacing:.5px; border-bottom:1px solid var(--border); font-weight:600;
+      cursor:pointer; user-select:none; transition:all .15s;
     }
+    .breakdown-table th:hover { color:var(--text); background:rgba(108,99,255,.05); }
     .breakdown-table th.r, .breakdown-table td.r { text-align:right; }
     .breakdown-table td { padding:6px 8px; border-bottom:1px solid var(--bg); }
     .breakdown-table tr:hover td { background:var(--surface); }
@@ -212,18 +215,302 @@
   </style>
 </head>
 <body>
-<div class="app" id="app">
-  <div class="loading"><div class="spinner"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div>
+<div class="app" x-data="simulator()" x-init="init()">
+  <template x-if="!loaded">
+    <div class="loading"><div class="spinner"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div>
+  </template>
+
+  <template x-if="loaded">
+    <div style="display:flex;flex-direction:column;height:100vh">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-title">
+          <span class="icon">🍋</span>
+          <h1>Simulateur <span class="sub">· 1 hectare sous Venlo</span></h1>
+        </div>
+        <div class="scenario-tabs">
+          <template x-for="s of ['pessimiste','normal','optimiste']">
+            <button class="scenario-tab" :class="{active:activeScenario===s}" :data-scenario="s" @click="setScenario(s)" x-text="s.charAt(0).toUpperCase()+s.slice(1)"></button>
+          </template>
+        </div>
+        <span class="coeff-info" x-text="`Rdt ${(scenario.Coeff_rendement*100).toFixed(0)}% · Prix ${(scenario.Coeff_prix*100).toFixed(0)}%`"></span>
+      </div>
+
+      <!-- Save/Load bar -->
+      <div class="save-bar">
+        <select @change="loadedJardinId=$event.target.value?parseInt($event.target.value):null">
+          <option value="">— Charger une simulation —</option>
+          <template x-for="j of jardins">
+            <option :value="j.id" :selected="loadedJardinId===j.id" x-text="`${j.Title} (${j.Strategie||''})`"></option>
+          </template>
+        </select>
+        <button @click="loadSimulation()">Charger</button>
+        <span class="sep"></span>
+        <input type="text" placeholder="Nom de la simulation..." x-model="saveName">
+        <button class="primary" @click="saveSimulation()">💾 Sauvegarder</button>
+      </div>
+
+      <!-- Main layout -->
+      <div class="main">
+        <!-- Left panel -->
+        <div class="panel-left">
+          <div class="search-box">
+            <input type="text" class="search-input" placeholder="Rechercher une variété ou un groupe..." x-model="searchQuery">
+          </div>
+          <div class="variety-dropdown" :class="{open:filteredVarieties.length>0}">
+            <template x-for="v of filteredVarieties">
+              <div class="variety-item" @click="addVariety(v.NocoDB_Id)">
+                <div>
+                  <span class="v-name" x-text="v.Variete"></span><span class="v-espece" x-text="v.Espece"></span>
+                  <template x-if="getGroup(v)">
+                    <span class="v-group" x-text="` · ${getGroup(v)}`"></span>
+                  </template>
+                </div>
+                <div class="v-meta">
+                  <span class="v-density" x-text="`${getDensity(v)}/ha`"></span>
+                  <span class="v-yield" x-text="`${fmt(v.Rendement_cible_kg)} kg`"></span>
+                  <template x-if="v.avgPrix>0">
+                    <span class="v-price" x-text="`${fmt(v.avgPrix,2)} €/kg`"></span>
+                  </template>
+                  <template x-if="v.avgPrix<=0">
+                    <span class="v-no-price">∅ prix</span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="mix-header">
+            <h3 x-text="`Mix variétal · ${mix.length} var. · ${totalParts} part${totalParts>1?'s':''}`"></h3>
+            <div class="mix-header-right">
+              <div class="sort-btns">
+                <button class="sort-btn" :class="{active:mixSort==='order'}" @click="setMixSort('order')">Ordre</button>
+                <button class="sort-btn" :class="{active:mixSort==='ca'}" @click="setMixSort('ca')">€/ha</button>
+                <button class="sort-btn" :class="{active:mixSort==='trees'}" @click="setMixSort('trees')">Arbres</button>
+                <button class="sort-btn" :class="{active:mixSort==='alpha'}" @click="setMixSort('alpha')">A-Z</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mix-list">
+            <template x-if="mix.length===0">
+              <div class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>
+            </template>
+            <template x-if="mix.length>0">
+              <template x-for="(m,i) of sortedMix">
+                <template x-if="getVarietyById(m.NocoDB_Id)">
+                  <div class="mix-row" x-data="{v:getVarietyById(m.NocoDB_Id),d:getDensity(getVarietyById(m.NocoDB_Id)),pct:getPct(m),nb:Math.round(getDensity(getVarietyById(m.NocoDB_Id))*getPct(m)/100),rentaHa:getRentaHa(getVarietyById(m.NocoDB_Id))}">
+                    <div class="mix-info">
+                      <div class="mix-name" x-text="v.Variete"></div>
+                      <div class="mix-espece" x-text="`${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}`"></div>
+                    </div>
+                    <div class="mix-controls">
+                      <span class="mix-ca" :title="`Rentabilité si 100% de cette variété`" x-text="fmtCompact(rentaHa)+'/ha'"></span>
+                      <span class="mix-trees" x-text="`${nb} arb.`"></span>
+                      <span class="mix-pct" x-text="`${fmt(pct,1)}%`"></span>
+                      <div class="parts-group">
+                        <button class="parts-btn" @click="changeParts(i,-1)">−</button>
+                        <input type="number" class="parts-input" x-model.number="m.parts" min="1" max="99" @change="setParts(i,m.parts)">
+                        <button class="parts-btn" @click="changeParts(i,1)">+</button>
+                      </div>
+                      <button class="mix-remove" @click="removeVariety(i)">&times;</button>
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </template>
+          </div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="panel-right">
+          <template x-if="mix.length===0">
+            <div class="empty-state" style="flex:1"><div class="icon">📊</div><p>Composez votre mix variétal pour voir les résultats</p></div>
+          </template>
+          <template x-if="mix.length>0">
+            <div class="results-section">
+              <!-- KPI Cards -->
+              <div class="kpi-grid">
+                <div class="kpi-card ca">
+                  <div class="kpi-label">CA / hectare</div>
+                  <div class="kpi-value" x-text="fmtEur(computed.totalCA)"></div>
+                  <div class="kpi-sub" x-text="`Scénario ${activeScenario}`"></div>
+                </div>
+                <div class="kpi-card yield">
+                  <div class="kpi-label">Production</div>
+                  <div class="kpi-value"><span x-text="`${fmt(computed.totalYield/1000,1)}`"></span><span class="unit">t/ha</span></div>
+                  <div class="kpi-sub" x-text="`${fmt(computed.totalYield)} kg`"></div>
+                </div>
+                <div class="kpi-card price">
+                  <div class="kpi-label">Prix moyen pondéré</div>
+                  <div class="kpi-value"><span x-text="`${fmt(computed.avgPriceKg,2)}`"></span><span class="unit">€/kg</span></div>
+                </div>
+                <div class="kpi-card trees">
+                  <div class="kpi-label">Nb. arbres / ha</div>
+                  <div class="kpi-value" x-text="fmt(computed.totalTrees)"></div>
+                  <div class="kpi-sub">densité mixte effective</div>
+                </div>
+              </div>
+
+              <!-- Charts Grid -->
+              <div class="charts-grid">
+                <!-- CA par catégorie -->
+                <div class="chart-card">
+                  <div class="chart-card-title">CA par catégorie</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.ca})), computed.totalCA, computed.groups.map((g,i)=>GROUP_COLORS[g.name]||'#888'), fmtEur(computed.totalCA), '/ hectare')"></div>
+                    <div class="donut-legend">
+                      <template x-for="(g,i) of computed.groups">
+                        <template x-if="computed.totalCA>0?((g.ca/computed.totalCA*100)>0):false">
+                          <div class="legend-item">
+                            <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
+                            <span class="legend-name" x-text="g.name"></span>
+                            <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(g.ca/computed.totalCA*100):0,1)}%`"></span>
+                          </div>
+                        </template>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Surface par catégorie -->
+                <div class="chart-card">
+                  <div class="chart-card-title">Surface par catégorie</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.pct})), 100, computed.groups.map((g,i)=>GROUP_COLORS[g.name]||'#888'), '1 ha', 'surface')"></div>
+                    <div class="donut-legend">
+                      <template x-for="(g,i) of computed.groups">
+                        <template x-if="g.pct>0">
+                          <div class="legend-item">
+                            <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
+                            <span class="legend-name" x-text="g.name"></span>
+                            <span class="legend-value" x-text="`${fmt(g.pct,1)}%`"></span>
+                          </div>
+                        </template>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- CA par variété -->
+                <div class="chart-card">
+                  <div class="chart-card-title">CA par variété</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.ca})), computed.totalCA, computed.rows.map((r,i)=>COLORS[i%COLORS.length]), fmtEur(computed.totalCA), '/ hectare')"></div>
+                    <div class="donut-legend">
+                      <template x-for="(r,i) of computed.rows">
+                        <template x-if="computed.totalCA>0?((r.ca/computed.totalCA*100)>0):false">
+                          <div class="legend-item">
+                            <span class="legend-dot" :style="`background:${COLORS[i%COLORS.length]}`"></span>
+                            <span class="legend-name" x-text="r.Variete"></span>
+                            <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(r.ca/computed.totalCA*100):0,1)}%`"></span>
+                          </div>
+                        </template>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Surface par variété -->
+                <div class="chart-card">
+                  <div class="chart-card-title">Surface par variété</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.pct})), 100, computed.rows.map((r,i)=>COLORS[i%COLORS.length]), '1 ha', 'surface')"></div>
+                    <div class="donut-legend">
+                      <template x-for="(r,i) of computed.rows">
+                        <template x-if="r.pct>0">
+                          <div class="legend-item">
+                            <span class="legend-dot" :style="`background:${COLORS[i%COLORS.length]}`"></span>
+                            <span class="legend-name" x-text="r.Variete"></span>
+                            <span class="legend-value" x-text="`${fmt(r.pct,1)}%`"></span>
+                          </div>
+                        </template>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detail table -->
+              <div style="margin-top:20px">
+                <div class="breakdown-title">Détail par variété</div>
+                <table class="breakdown-table">
+                  <thead>
+                    <tr>
+                      <th @click="sortDetail('Variete')" style="cursor:pointer">
+                        Variété <template x-if="detailSort.col==='Variete'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('parts')" style="cursor:pointer">
+                        Parts <template x-if="detailSort.col==='parts'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('pct')" style="cursor:pointer">
+                        % <template x-if="detailSort.col==='pct'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('density')" style="cursor:pointer">
+                        Densité <template x-if="detailSort.col==='density'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('nbArbres')" style="cursor:pointer">
+                        Arbres <template x-if="detailSort.col==='nbArbres'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('yieldKg')" style="cursor:pointer">
+                        Rdt/ha <template x-if="detailSort.col==='yieldKg'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('rendEff')" style="cursor:pointer">
+                        Rdt eff. <template x-if="detailSort.col==='rendEff'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('prixEff')" style="cursor:pointer">
+                        Prix eff. <template x-if="detailSort.col==='prixEff'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('ca')" style="cursor:pointer">
+                        CA <template x-if="detailSort.col==='ca'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th class="r" @click="sortDetail('rentaHa')" style="cursor:pointer">
+                        Renta/ha <template x-if="detailSort.col==='rentaHa'"><span x-text="detailSort.dir==='asc'?'▲':'▼'"></span></template>
+                      </th>
+                      <th>Part CA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r of sortedDetailRows">
+                      <tr>
+                        <td><strong x-text="r.Variete"></strong><br><span style="color:var(--text-dim);font-size:10px" x-text="r.Espece"></span></td>
+                        <td class="r" style="font-weight:600" x-text="r.parts"></td>
+                        <td class="r" x-text="`${fmt(r.pct,1)}%`"></td>
+                        <td class="r" style="color:var(--accent-light)" x-text="r.density"></td>
+                        <td class="r" x-text="fmt(r.nbArbres)"></td>
+                        <td class="r" x-text="`${fmt(r.yieldKg)} kg`"></td>
+                        <td class="r" x-text="`${fmt(r.rendEff,1)} kg`"></td>
+                        <td class="r" x-text="`${fmt(r.prixEff,2)} €`"></td>
+                        <td class="r" style="font-weight:600" x-text="fmtEur(r.ca)"></td>
+                        <td class="r" x-text="fmtCompact(r.rentaHa)"></td>
+                        <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" :style="`width:${(r.ca/Math.max(...computed.rows.map(x=>x.ca),1)*100).toFixed(1)}%`"></div></div></td>
+                      </tr>
+                    </template>
+                    <tr class="total-row">
+                      <td>Total</td>
+                      <td class="r" x-text="totalParts"></td>
+                      <td class="r">100%</td>
+                      <td></td>
+                      <td class="r" x-text="fmt(computed.totalTrees)"></td>
+                      <td></td><td></td><td></td>
+                      <td class="r" style="font-size:13px" x-text="fmtEur(computed.totalCA)"></td>
+                      <td></td><td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
 </div>
+
 <script>
 const COLORS = ['#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308','#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16'];
-
-// ─── Group colors & order (loaded dynamically from Grist, fallback for standalone) ───
 const CAT_PALETTE = ['#f97316','#fb923c','#ea580c','#facc15','#22c55e','#eab308','#f472b6','#14b8a6','#f59e0b','#10b981','#8b5cf6','#6366f1','#ec4899','#06b6d4','#84cc16','#e11d48'];
-let GROUP_COLORS = {};
-let GROUP_ORDER = [];
 
-// ─── Vigor → Density mapping ───
 const VIGOR_DENSITY = {
   'Très faible': 1100, 'Faible': 830, 'Moyenne-': 625,
   'Moyenne': 500, 'Moyenne+': 500, 'Forte': 400, 'Très forte': 200
@@ -238,7 +525,6 @@ const ESPECE_DENSITY = {
 };
 const DEFAULT_DENSITY = 500;
 
-// Fallback group mapping by Espece name (for standalone mode)
 const ESPECE_GROUP = {
   'Orange':'🍊 Orangers','Orange sanguine':'🍊 Orangers',
   'Bigarade':'🟠 Bigaradiers et bergamotiers','Bergamote':'🟠 Bigaradiers et bergamotiers',
@@ -258,618 +544,438 @@ const ESPECE_GROUP = {
   'Citrus':'🌳 Porte-greffes et apparentés','Autre':'🌳 Porte-greffes et apparentés'
 };
 
-// ─── State ───
-let S = {
-  varieties: [], scenarios: [], jardins: [], mixRecords: [],
-  activeScenario: 'normal',
-  mix: [],
-  searchQuery: '',
-  loadedJardinId: null, saveName: '',
-  mixSort: 'order'
-};
+function simulator() {
+  return {
+    // State
+    loaded: false,
+    varieties: [],
+    scenarios: [],
+    jardins: [],
+    mix: [],
+    activeScenario: 'normal',
+    searchQuery: '',
+    loadedJardinId: null,
+    saveName: '',
+    mixSort: 'order',
+    detailSort: { col: 'ca', dir: 'desc' },
+    GROUP_COLORS: {},
+    GROUP_ORDER: [],
+    COLORS: COLORS,
 
-function fmt(n, d=0) { return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n); }
-function fmtEur(n) { return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n); }
-function fmtCompact(n) {
-  if (Math.abs(n) >= 1e6) return fmt(n/1e6,1) + ' M€';
-  if (Math.abs(n) >= 1e4) return fmt(n/1e3,0) + ' k€';
-  if (Math.abs(n) >= 1e3) return fmt(n/1e3,1) + ' k€';
-  return fmt(n,0) + ' €';
-}
+    // Computed properties
+    get totalParts() {
+      return this.mix.reduce((s, m) => s + m.parts, 0);
+    },
 
-function getScenario() {
-  const map = {pessimiste:0, normal:1, optimiste:2};
-  return S.scenarios[map[S.activeScenario]] || S.scenarios[0] || {Coeff_rendement:.8,Coeff_prix:.75};
-}
+    get scenario() {
+      const map = { pessimiste: 0, normal: 1, optimiste: 2 };
+      return this.scenarios[map[this.activeScenario]] || this.scenarios[0] || { Coeff_rendement: .8, Coeff_prix: .75 };
+    },
 
-function getDensity(v) {
-  if (v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
-  return ESPECE_DENSITY[v.Espece] || DEFAULT_DENSITY;
-}
+    get filteredVarieties() {
+      const q = this.searchQuery.toLowerCase();
+      if (q.length < 2) return [];
+      const inMix = new Set(this.mix.map(m => m.NocoDB_Id));
+      return this.varieties.filter(v => !inMix.has(v.NocoDB_Id) &&
+        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || this.getGroup(v).toLowerCase().includes(q))
+      ).slice(0, 25);
+    },
 
-function getGroup(v) {
-  return v.Groupe_commercial || ESPECE_GROUP[v.Espece] || '';
-}
+    get computed() {
+      const sc = this.scenario;
+      const totalParts = this.totalParts;
+      const rows = this.mix.map(m => {
+        const v = this.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+        if (!v) return null;
+        const density = this.getDensity(v);
+        const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
+        const surfaceFrac = pct / 100;
+        const nbArbres = Math.round(density * surfaceFrac);
+        const rendEff = v.Rendement_cible_kg * sc.Coeff_rendement;
+        const prixEff = v.avgPrix * sc.Coeff_prix;
+        const yieldKg = nbArbres * rendEff;
+        const ca = yieldKg * prixEff;
+        const rentaHa = density * rendEff * prixEff;
+        return {
+          NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
+          Groupe: this.getGroup(v),
+          parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca, rentaHa
+        };
+      }).filter(Boolean);
 
-// ─── Parts → % helper ───
-function getTotalParts() { return S.mix.reduce((s,m) => s + m.parts, 0); }
-function getPct(m) { const t = getTotalParts(); return t > 0 ? (m.parts / t * 100) : 0; }
+      const totalCA = rows.reduce((s, r) => s + r.ca, 0);
+      const totalYield = rows.reduce((s, r) => s + r.yieldKg, 0);
+      const totalTrees = rows.reduce((s, r) => s + r.nbArbres, 0);
+      const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
 
-// ─── Rentability: CA/ha if 100% this variety ───
-function getRentaHa(v) {
-  const sc = getScenario();
-  const d = getDensity(v);
-  const rendEff = v.Rendement_cible_kg * (sc.Coeff_rendement||.8);
-  const prixEff = v.avgPrix * (sc.Coeff_prix||.75);
-  return d * rendEff * prixEff;
-}
-
-// ─── Sort mix ───
-function setMixSort(mode) { S.mixSort = mode; render(); }
-function getSortedMix() {
-  const indexed = S.mix.map((m,i) => ({m,i}));
-  const sc = getScenario();
-  switch(S.mixSort) {
-    case 'ca':
-      return indexed.sort((a,b) => {
-        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
-        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
-        return (vb?getRentaHa(vb):0) - (va?getRentaHa(va):0);
+      const groupMap = {};
+      rows.forEach(r => {
+        const g = r.Groupe || 'Autre';
+        if (!groupMap[g]) groupMap[g] = { name: g, ca: 0, yieldKg: 0, nbArbres: 0, pct: 0, varieties: 0 };
+        groupMap[g].ca += r.ca;
+        groupMap[g].yieldKg += r.yieldKg;
+        groupMap[g].nbArbres += r.nbArbres;
+        groupMap[g].pct += r.pct;
+        groupMap[g].varieties += 1;
       });
-    case 'trees':
-      return indexed.sort((a,b) => {
-        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
-        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
-        const na = va ? Math.round(getDensity(va)*getPct(a.m)/100) : 0;
-        const nb = vb ? Math.round(getDensity(vb)*getPct(b.m)/100) : 0;
-        return nb - na;
-      });
-    case 'alpha':
-      return indexed.sort((a,b) => {
-        const va = S.varieties.find(x=>x.NocoDB_Id===a.m.NocoDB_Id);
-        const vb = S.varieties.find(x=>x.NocoDB_Id===b.m.NocoDB_Id);
-        return (va?va.Variete:'').localeCompare(vb?vb.Variete:'');
-      });
-    default: return indexed;
-  }
-}
+      const groups = this.GROUP_ORDER.filter(g => groupMap[g]).map(g => groupMap[g]);
+      Object.keys(groupMap).forEach(g => { if (!this.GROUP_ORDER.includes(g)) groups.push(groupMap[g]); });
 
-// ─── Compute ───
-function compute() {
-  const sc = getScenario();
-  const totalParts = getTotalParts();
-  const rows = S.mix.map(m => {
-    const v = S.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
-    if (!v) return null;
-    const density = getDensity(v);
-    const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
-    const surfaceFrac = pct / 100;
-    const nbArbres = Math.round(density * surfaceFrac);
-    const rendEff = v.Rendement_cible_kg * sc.Coeff_rendement;
-    const prixEff = v.avgPrix * sc.Coeff_prix;
-    const yieldKg = nbArbres * rendEff;
-    const ca = yieldKg * prixEff;
-    return {
-      NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
-      Groupe: getGroup(v),
-      parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca,
-      caPerTree: nbArbres > 0 ? ca / nbArbres : 0
-    };
-  }).filter(Boolean);
-  const totalCA = rows.reduce((s,r) => s+r.ca, 0);
-  const totalYield = rows.reduce((s,r) => s+r.yieldKg, 0);
-  const totalTrees = rows.reduce((s,r) => s+r.nbArbres, 0);
-  const avgPriceKg = totalYield > 0 ? totalCA / totalYield : 0;
+      return { rows, totalCA, totalYield, totalTrees, avgPriceKg, groups };
+    },
 
-  // Aggregate by group
-  const groupMap = {};
-  rows.forEach(r => {
-    const g = r.Groupe || 'Autre';
-    if (!groupMap[g]) groupMap[g] = { name: g, ca: 0, yieldKg: 0, nbArbres: 0, pct: 0, varieties: 0 };
-    groupMap[g].ca += r.ca;
-    groupMap[g].yieldKg += r.yieldKg;
-    groupMap[g].nbArbres += r.nbArbres;
-    groupMap[g].pct += r.pct;
-    groupMap[g].varieties += 1;
-  });
-  const groups = GROUP_ORDER.filter(g => groupMap[g]).map(g => groupMap[g]);
-  // Add any groups not in ORDER
-  Object.keys(groupMap).forEach(g => { if (!GROUP_ORDER.includes(g)) groups.push(groupMap[g]); });
+    get sortedMix() {
+      const indexed = this.mix.map((m, i) => ({ m, i }));
+      switch (this.mixSort) {
+        case 'ca':
+          return indexed.sort((a, b) => {
+            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
+            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            return (this.getRentaHa(vb) || 0) - (this.getRentaHa(va) || 0);
+          });
+        case 'trees':
+          return indexed.sort((a, b) => {
+            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
+            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            const na = va ? Math.round(this.getDensity(va) * this.getPct(a.m) / 100) : 0;
+            const nb = vb ? Math.round(this.getDensity(vb) * this.getPct(b.m) / 100) : 0;
+            return nb - na;
+          });
+        case 'alpha':
+          return indexed.sort((a, b) => {
+            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
+            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            return (va ? va.Variete : '').localeCompare(vb ? vb.Variete : '');
+          });
+        default:
+          return indexed;
+      }
+    },
 
-  return { rows, totalCA, totalYield, totalTrees, avgPriceKg, groups };
-}
+    get sortedDetailRows() {
+      let rows = this.computed.rows.slice();
+      const { col, dir } = this.detailSort;
+      const ascending = dir === 'asc';
 
-// ─── Render ───
-function render() {
-  const app = document.getElementById('app');
-  const sc = getScenario();
-  const totalParts = getTotalParts();
-
-  const q = S.searchQuery.toLowerCase();
-  const inMix = new Set(S.mix.map(m => m.NocoDB_Id));
-  const filtered = q.length >= 2
-    ? S.varieties.filter(v => !inMix.has(v.NocoDB_Id) &&
-        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || getGroup(v).toLowerCase().includes(q))
-      ).slice(0, 25)
-    : [];
-
-  const res = compute();
-
-  app.innerHTML = `
-    <div class="header">
-      <div class="header-title">
-        <span class="icon">🍋</span>
-        <h1>Simulateur <span class="sub">· 1 hectare sous Venlo</span></h1>
-      </div>
-      <div class="scenario-tabs">
-        ${['pessimiste','normal','optimiste'].map(s => `
-          <button class="scenario-tab ${S.activeScenario===s?'active':''}" data-scenario="${s}" onclick="setScenario('${s}')">${s.charAt(0).toUpperCase()+s.slice(1)}</button>
-        `).join('')}
-      </div>
-      <span class="coeff-info">Rdt ${(sc.Coeff_rendement*100).toFixed(0)}% · Prix ${(sc.Coeff_prix*100).toFixed(0)}%</span>
-    </div>
-
-    <div class="save-bar">
-      <select id="loadSelect" onchange="onLoadSelect(this.value)">
-        <option value="">— Charger une simulation —</option>
-        ${S.jardins.map(j => `<option value="${j.id}" ${S.loadedJardinId===j.id?'selected':''}>${j.Title} (${j.Strategie||''})</option>`).join('')}
-      </select>
-      <button onclick="loadSimulation()">Charger</button>
-      <span class="sep"></span>
-      <input type="text" placeholder="Nom de la simulation..." id="saveNameInput" value="${S.saveName}" oninput="S.saveName=this.value">
-      <button class="primary" onclick="saveSimulation()">💾 Sauvegarder</button>
-    </div>
-
-    <div class="main">
-      <div class="panel-left">
-        <div class="search-box">
-          <input type="text" class="search-input" placeholder="Rechercher une variété ou un groupe..." value="${S.searchQuery}"
-            oninput="S.searchQuery=this.value;render();this.focus()" id="searchInput">
-        </div>
-        <div class="variety-dropdown ${filtered.length>0?'open':''}">
-          ${filtered.map(v => {
-            const d = getDensity(v);
-            const g = getGroup(v);
-            return `<div class="variety-item" onclick="addVariety(${v.NocoDB_Id})">
-              <div>
-                <span class="v-name">${v.Variete}</span><span class="v-espece">${v.Espece}</span>
-                ${g ? `<span class="v-group"> · ${g}</span>` : ''}
-              </div>
-              <div class="v-meta">
-                <span class="v-density">${d}/ha</span>
-                <span class="v-yield">${fmt(v.Rendement_cible_kg)} kg</span>
-                ${v.avgPrix>0?`<span class="v-price">${fmt(v.avgPrix,2)} €/kg</span>`:`<span class="v-no-price">∅ prix</span>`}
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-
-        <div class="mix-header">
-          <h3>Mix variétal · ${S.mix.length} var. · ${totalParts} part${totalParts>1?'s':''}</h3>
-          <div class="mix-header-right">
-            <div class="sort-btns">
-              <button class="sort-btn ${S.mixSort==='order'?'active':''}" onclick="setMixSort('order')">Ordre</button>
-              <button class="sort-btn ${S.mixSort==='ca'?'active':''}" onclick="setMixSort('ca')">€/ha</button>
-              <button class="sort-btn ${S.mixSort==='trees'?'active':''}" onclick="setMixSort('trees')">Arbres</button>
-              <button class="sort-btn ${S.mixSort==='alpha'?'active':''}" onclick="setMixSort('alpha')">A-Z</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="mix-list">
-          ${S.mix.length===0 ? `<div class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>` :
-            getSortedMix().map(({m,i}) => {
-              const v = S.varieties.find(x => x.NocoDB_Id===m.NocoDB_Id);
-              if (!v) return '';
-              const d = getDensity(v);
-              const pct = getPct(m);
-              const nb = Math.round(d * pct / 100);
-              const g = getGroup(v);
-              const rentaHa = getRentaHa(v);
-              return `<div class="mix-row">
-                <div class="mix-info">
-                  <div class="mix-name">${v.Variete}</div>
-                  <div class="mix-espece">${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}</div>
-                </div>
-                <div class="mix-controls">
-                  <span class="mix-ca" title="Rentabilité si 100% de cette variété">${fmtCompact(rentaHa)}/ha</span>
-                  <span class="mix-trees">${nb} arb.</span>
-                  <span class="mix-pct">${fmt(pct,1)}%</span>
-                  <div class="parts-group">
-                    <button class="parts-btn" onclick="changeParts(${i},-1)">−</button>
-                    <input type="number" class="parts-input" value="${m.parts}" min="1" max="99"
-                      onchange="setParts(${i},parseInt(this.value)||1)">
-                    <button class="parts-btn" onclick="changeParts(${i},1)">+</button>
-                  </div>
-                  <button class="mix-remove" onclick="removeVariety(${i})">&times;</button>
-                </div>
-              </div>`;
-            }).join('')}
-        </div>
-      </div>
-
-      <div class="panel-right">
-        ${S.mix.length===0 ? `<div class="empty-state" style="flex:1"><div class="icon">📊</div><p>Composez votre mix variétal pour voir les résultats</p></div>` : renderResults(res)}
-      </div>
-    </div>`;
-
-  const si = document.getElementById('searchInput');
-  if (si && S.searchQuery.length>0) { si.focus(); si.setSelectionRange(si.value.length,si.value.length); }
-}
-
-function renderResults(res) {
-  const maxCA = Math.max(...res.rows.map(r=>r.ca),1);
-  const maxGroupCA = Math.max(...res.groups.map(g=>g.ca),1);
-  return `<div class="results-section">
-    <div class="kpi-grid">
-      <div class="kpi-card ca">
-        <div class="kpi-label">CA / hectare</div>
-        <div class="kpi-value">${fmtEur(res.totalCA)}</div>
-        <div class="kpi-sub">Scénario ${S.activeScenario}</div>
-      </div>
-      <div class="kpi-card yield">
-        <div class="kpi-label">Production</div>
-        <div class="kpi-value">${fmt(res.totalYield/1000,1)}<span class="unit">t/ha</span></div>
-        <div class="kpi-sub">${fmt(res.totalYield)} kg</div>
-      </div>
-      <div class="kpi-card price">
-        <div class="kpi-label">Prix moyen pondéré</div>
-        <div class="kpi-value">${fmt(res.avgPriceKg,2)}<span class="unit">€/kg</span></div>
-      </div>
-      <div class="kpi-card trees">
-        <div class="kpi-label">Nb. arbres / ha</div>
-        <div class="kpi-value">${fmt(res.totalTrees)}</div>
-        <div class="kpi-sub">densité mixte effective</div>
-      </div>
-    </div>
-
-    ${renderChartsGrid(res)}
-
-    <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
-    <table class="breakdown-table">
-      <thead><tr>
-        <th>Variété</th><th class="r">Parts</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
-        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part CA</th>
-      </tr></thead>
-      <tbody>
-        ${res.rows.map(r => `<tr>
-          <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:10px">${r.Espece}</span></td>
-          <td class="r" style="font-weight:600">${r.parts}</td>
-          <td class="r">${fmt(r.pct,1)}%</td>
-          <td class="r" style="color:var(--accent-light)">${r.density}</td>
-          <td class="r">${fmt(r.nbArbres)}</td>
-          <td class="r">${fmt(r.rendEff,1)} kg</td>
-          <td class="r">${fmt(r.prixEff,2)} €</td>
-          <td class="r" style="font-weight:600">${fmtEur(r.ca)}</td>
-          <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(r.ca/maxCA*100).toFixed(1)}%"></div></div></td>
-        </tr>`).join('')}
-        <tr class="total-row">
-          <td>Total</td><td class="r">${getTotalParts()}</td><td class="r">100%</td>
-          <td></td><td class="r">${fmt(res.totalTrees)}</td><td></td><td></td>
-          <td class="r" style="font-size:13px">${fmtEur(res.totalCA)}</td><td></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>`;
-}
-
-function renderDonut(items, total, colors, centerLine1, centerLine2) {
-  if (total===0) return '<div style="color:var(--text-dim);text-align:center;padding:20px">—</div>';
-  const cx=70,cy=70,R=65,r=40; let cum=-Math.PI/2; let paths='';
-  items.forEach((item,i) => {
-    const f=item.value/total; if(f<=0) return;
-    const a=f*Math.PI*2;
-    const col = Array.isArray(colors) ? (colors[i%colors.length]) : colors;
-    const x1o=cx+R*Math.cos(cum),y1o=cy+R*Math.sin(cum),x1i=cx+r*Math.cos(cum),y1i=cy+r*Math.sin(cum);
-    cum+=a;
-    const x2o=cx+R*Math.cos(cum),y2o=cy+R*Math.sin(cum),x2i=cx+r*Math.cos(cum),y2i=cy+r*Math.sin(cum);
-    const lg=a>Math.PI?1:0;
-    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${col}" opacity=".85"/>`;
-  });
-  return `<svg class="donut-svg" viewBox="0 0 140 140">${paths}
-    <text x="${cx}" y="${cy-3}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="700">${centerLine1}</text>
-    <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text-dim)" font-size="8">${centerLine2}</text>
-  </svg>`;
-}
-
-function renderChartsGrid(res) {
-  if (res.rows.length === 0) return '';
-  const totalSurface = 100; // 1 hectare = 100%
-
-  // Group colors array
-  const gColors = res.groups.map(g => GROUP_COLORS[g.name]||'#888');
-  // Variety colors array
-  const vColors = res.rows.map((_,i) => COLORS[i % COLORS.length]);
-
-  return `
-    <div class="charts-grid">
-      <div class="chart-card">
-        <div class="chart-card-title">CA par catégorie</div>
-        <div class="donut-wrap">
-          ${renderDonut(res.groups.map(g=>({label:g.name,value:g.ca})), res.totalCA, gColors, fmtEur(res.totalCA), '/ hectare')}
-          <div class="donut-legend">
-            ${res.groups.map((g,i) => {
-              const pct = res.totalCA>0 ? (g.ca/res.totalCA*100) : 0;
-              return pct > 0 ? `<div class="legend-item">
-                <span class="legend-dot" style="background:${gColors[i]}"></span>
-                <span class="legend-name">${g.name}</span>
-                <span class="legend-value">${fmt(pct,1)}%</span>
-              </div>` : '';
-            }).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-title">Surface par catégorie</div>
-        <div class="donut-wrap">
-          ${renderDonut(res.groups.map(g=>({label:g.name,value:g.pct})), totalSurface, gColors, '1 ha', 'surface')}
-          <div class="donut-legend">
-            ${res.groups.map((g,i) => {
-              return g.pct > 0 ? `<div class="legend-item">
-                <span class="legend-dot" style="background:${gColors[i]}"></span>
-                <span class="legend-name">${g.name}</span>
-                <span class="legend-value">${fmt(g.pct,1)}%</span>
-              </div>` : '';
-            }).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-title">CA par variété</div>
-        <div class="donut-wrap">
-          ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.ca})), res.totalCA, vColors, fmtEur(res.totalCA), '/ hectare')}
-          <div class="donut-legend">
-            ${res.rows.map((r,i) => {
-              const pct = res.totalCA>0 ? (r.ca/res.totalCA*100) : 0;
-              return pct > 0 ? `<div class="legend-item">
-                <span class="legend-dot" style="background:${vColors[i]}"></span>
-                <span class="legend-name">${r.Variete}</span>
-                <span class="legend-value">${fmt(pct,1)}%</span>
-              </div>` : '';
-            }).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-title">Surface par variété</div>
-        <div class="donut-wrap">
-          ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.pct})), totalSurface, vColors, '1 ha', 'surface')}
-          <div class="donut-legend">
-            ${res.rows.map((r,i) => {
-              return r.pct > 0 ? `<div class="legend-item">
-                <span class="legend-dot" style="background:${vColors[i]}"></span>
-                <span class="legend-name">${r.Variete}</span>
-                <span class="legend-value">${fmt(r.pct,1)}%</span>
-              </div>` : '';
-            }).join('')}
-          </div>
-        </div>
-      </div>
-    </div>`;
-}
-
-// ─── Actions ───
-function setScenario(s) { S.activeScenario=s; render(); }
-
-function addVariety(nocoId) {
-  if (S.mix.find(m=>m.NocoDB_Id===nocoId)) return;
-  S.mix.push({ NocoDB_Id: nocoId, parts: 1 });
-  S.searchQuery=''; render();
-}
-
-function removeVariety(idx) {
-  S.mix.splice(idx,1);
-  render();
-}
-
-function changeParts(idx, delta) {
-  const newVal = S.mix[idx].parts + delta;
-  if (newVal >= 1 && newVal <= 99) {
-    S.mix[idx].parts = newVal;
-    render();
-  }
-}
-
-function setParts(idx, val) {
-  S.mix[idx].parts = Math.max(1, Math.min(99, val));
-  render();
-}
-
-function onLoadSelect(val) { S.loadedJardinId = val ? parseInt(val) : null; }
-
-// ─── Save/Load Grist ───
-async function loadSimulation() {
-  const jid = S.loadedJardinId;
-  if (!jid) return;
-  try {
-    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
-    const n = mixData.id.length;
-    const newMix = [];
-    for (let i=0; i<n; i++) {
-      if (mixData.Jardins_id[i] === S.jardins.find(j=>j.id===jid)?.NocoDB_Id) {
-        const vid = mixData.Varietes_id[i];
-        const nb = mixData.Nb_arbres[i] || 0;
-        const v = S.varieties.find(x=>x.NocoDB_Id===vid);
-        if (v) {
-          newMix.push({ NocoDB_Id: vid, _nb: nb });
+      rows.sort((a, b) => {
+        let aVal = a[col];
+        let bVal = b[col];
+        if (typeof aVal === 'string') {
+          const cmp = aVal.localeCompare(bVal);
+          return ascending ? cmp : -cmp;
         }
-      }
-    }
-    if (newMix.length > 0) {
-      const minNb = Math.min(...newMix.map(m=>m._nb).filter(n=>n>0)) || 1;
-      S.mix = newMix.map(m => ({
-        NocoDB_Id: m.NocoDB_Id,
-        parts: Math.max(1, Math.round(m._nb / minNb))
-      }));
-      const j = S.jardins.find(j=>j.id===jid);
-      S.saveName = j ? j.Title : '';
-      render();
-    }
-  } catch(e) { console.error('Load error:',e); }
-}
-
-async function saveSimulation() {
-  const name = S.saveName || ('Simulation ' + new Date().toLocaleDateString('fr-FR'));
-  if (S.mix.length===0) return;
-  try {
-    const sc = getScenario();
-    const paramNocId = S.scenarios.findIndex(s=>s===sc) + 1;
-    const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
-    const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
-
-    // Check if a simulation with this name already exists
-    let jardinNoco = null;
-    let jardinGristId = null;
-    for (let i=0;i<jardinsData.id.length;i++) {
-      if (jardinsData.Title[i] === name) {
-        jardinNoco = jardinsData.NocoDB_Id[i];
-        jardinGristId = jardinsData.id[i];
-        break;
-      }
-    }
-
-    const tJardins = grist.getTable('Simulation_Jardins');
-    const tMix = grist.getTable('Simulation_Mix_Varietal');
-
-    if (jardinGristId) {
-      // ─── Overwrite existing: delete old mix rows, update jardin ───
-      const oldMixIds = [];
-      for (let i=0;i<mixData.id.length;i++) {
-        if (mixData.Jardins_id[i] === jardinNoco) oldMixIds.push(mixData.id[i]);
-      }
-      if (oldMixIds.length) await tMix.destroy(oldMixIds);
-      await tJardins.update([{id: jardinGristId, fields: {Parametres_id: paramNocId}}]);
-    } else {
-      // ─── New simulation ───
-      jardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
-      const ids = await tJardins.create([{
-        fields: { NocoDB_Id: jardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
-      }]);
-      jardinGristId = ids[0];
-    }
-
-    // ─── Create new mix rows ───
-    let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
-    const totalParts = getTotalParts();
-    const mixRows = S.mix.map((m,i) => {
-      const v = S.varieties.find(x=>x.NocoDB_Id===m.NocoDB_Id);
-      const d = getDensity(v);
-      const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
-      const nb = Math.round(d * pct / 100);
-      maxMixNoco++;
-      return {
-        fields: {
-          NocoDB_Id: maxMixNoco,
-          Title: name + '-' + (i+1),
-          Nb_arbres: nb,
-          Jardins_id: jardinNoco,
-          Varietes_id: m.NocoDB_Id
-        }
-      };
-    });
-    await tMix.create(mixRows);
-
-    await loadJardins();
-    S.saveName = name;
-    S.loadedJardinId = jardinGristId;
-    render();
-    alert('Simulation "' + name + '" sauvegardée !');
-  } catch(e) { console.error('Save error:',e); alert('Erreur: '+e.message); }
-}
-
-async function loadJardins() {
-  try {
-    const jData = await grist.docApi.fetchTable('Simulation_Jardins');
-    S.jardins = [];
-    for (let i=0;i<jData.id.length;i++) {
-      S.jardins.push({id:jData.id[i], NocoDB_Id:jData.NocoDB_Id[i], Title:jData.Title[i], Strategie:jData.Strategie[i]});
-    }
-  } catch(e) { console.error(e); }
-}
-
-// ─── Data Loading ───
-async function loadFromGrist() {
-  try {
-    const [varData, prxData, parData, catData] = await Promise.all([
-      grist.docApi.fetchTable('Varietes'),
-      grist.docApi.fetchTable('Prix_Fruits'),
-      grist.docApi.fetchTable('Simulation_Parametres'),
-      grist.docApi.fetchTable('Categories')
-    ]);
-
-    // Build GROUP_ORDER & GROUP_COLORS from Categories table
-    const cats = [];
-    for (let i=0;i<catData.id.length;i++) {
-      cats.push({nid: catData.NocoDB_Id[i], name: catData.Categorie[i]});
-    }
-    cats.sort((a,b) => a.nid - b.nid);
-    GROUP_ORDER = cats.map(c => c.name);
-    GROUP_COLORS = {};
-    cats.forEach((c,i) => { GROUP_COLORS[c.name] = CAT_PALETTE[i % CAT_PALETTE.length]; });
-
-    const varieties = [];
-    for (let i=0;i<varData.id.length;i++) {
-      varieties.push({
-        id:varData.id[i], NocoDB_Id:varData.NocoDB_Id[i],
-        Variete:varData.Variete[i], Espece:varData.Espece[i],
-        Rendement_cible_kg:varData.Rendement_cible_kg[i]||0,
-        Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i]||0) : (varData.Densite_ha ? (varData.Densite_ha[i]||0) : 0)),
-        Groupe_commercial: varData.Categorie_ref ? (varData.Categorie_ref[i]||'') : (varData.Groupe_commercial ? (varData.Groupe_commercial[i]||'') : ''),
-        avgPrix:0
+        const diff = (aVal || 0) - (bVal || 0);
+        return ascending ? diff : -diff;
       });
+
+      return rows;
+    },
+
+    // Utility methods
+    fmt(n, d = 0) {
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+    },
+
+    fmtEur(n) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+    },
+
+    fmtCompact(n) {
+      if (Math.abs(n) >= 1e6) return this.fmt(n / 1e6, 1) + ' M€';
+      if (Math.abs(n) >= 1e4) return this.fmt(n / 1e3, 0) + ' k€';
+      if (Math.abs(n) >= 1e3) return this.fmt(n / 1e3, 1) + ' k€';
+      return this.fmt(n, 0) + ' €';
+    },
+
+    getDensity(v) {
+      if (v && v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
+      return ESPECE_DENSITY[v ? v.Espece : ''] || DEFAULT_DENSITY;
+    },
+
+    getGroup(v) {
+      return (v && v.Groupe_commercial) || (v ? ESPECE_GROUP[v.Espece] : '') || '';
+    },
+
+    getVarietyById(nocoId) {
+      return this.varieties.find(x => x.NocoDB_Id === nocoId);
+    },
+
+    getPct(m) {
+      const t = this.totalParts;
+      return t > 0 ? (m.parts / t * 100) : 0;
+    },
+
+    getRentaHa(v) {
+      const sc = this.scenario;
+      const d = this.getDensity(v);
+      const rendEff = (v ? v.Rendement_cible_kg : 0) * (sc.Coeff_rendement || .8);
+      const prixEff = (v ? v.avgPrix : 0) * (sc.Coeff_prix || .75);
+      return d * rendEff * prixEff;
+    },
+
+    buildDonutSVG(items, total, colors, centerLine1, centerLine2) {
+      if (total === 0) return '<div style="color:var(--text-dim);text-align:center;padding:20px">—</div>';
+      const cx = 70, cy = 70, R = 65, r = 40;
+      let cum = -Math.PI / 2;
+      let paths = '';
+      items.forEach((item, i) => {
+        const f = item.value / total;
+        if (f <= 0) return;
+        const a = f * Math.PI * 2;
+        const col = Array.isArray(colors) ? colors[i % colors.length] : colors;
+        const x1o = cx + R * Math.cos(cum), y1o = cy + R * Math.sin(cum),
+          x1i = cx + r * Math.cos(cum), y1i = cy + r * Math.sin(cum);
+        cum += a;
+        const x2o = cx + R * Math.cos(cum), y2o = cy + R * Math.sin(cum),
+          x2i = cx + r * Math.cos(cum), y2i = cy + r * Math.sin(cum);
+        const lg = a > Math.PI ? 1 : 0;
+        paths += `<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${col}" opacity=".85"/>`;
+      });
+      return `<svg class="donut-svg" viewBox="0 0 140 140">${paths}
+        <text x="${cx}" y="${cy - 3}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="700">${centerLine1}</text>
+        <text x="${cx}" y="${cy + 10}" text-anchor="middle" fill="var(--text-dim)" font-size="8">${centerLine2}</text>
+      </svg>`;
+    },
+
+    // Actions
+    setScenario(s) {
+      this.activeScenario = s;
+    },
+
+    addVariety(nocoId) {
+      if (this.mix.find(m => m.NocoDB_Id === nocoId)) return;
+      this.mix.push({ NocoDB_Id: nocoId, parts: 1 });
+      this.searchQuery = '';
+    },
+
+    removeVariety(idx) {
+      this.mix.splice(idx, 1);
+    },
+
+    changeParts(idx, delta) {
+      const newVal = this.mix[idx].parts + delta;
+      if (newVal >= 1 && newVal <= 99) {
+        this.mix[idx].parts = newVal;
+      }
+    },
+
+    setParts(idx, val) {
+      this.mix[idx].parts = Math.max(1, Math.min(99, val));
+    },
+
+    setMixSort(mode) {
+      this.mixSort = mode;
+    },
+
+    sortDetail(col) {
+      if (this.detailSort.col === col) {
+        this.detailSort.dir = this.detailSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.detailSort.col = col;
+        this.detailSort.dir = 'desc';
+      }
+    },
+
+    // Async methods
+    async init() {
+      try {
+        grist.ready({ requiredAccess: 'full' });
+        grist.onRecords(() => this.loadFromGrist());
+        await this.loadFromGrist();
+      } catch (e) {
+        this.loadStandalone();
+      }
+    },
+
+    async loadFromGrist() {
+      try {
+        const [varData, prxData, parData, catData] = await Promise.all([
+          grist.docApi.fetchTable('Varietes'),
+          grist.docApi.fetchTable('Prix_Fruits'),
+          grist.docApi.fetchTable('Simulation_Parametres'),
+          grist.docApi.fetchTable('Categories')
+        ]);
+
+        const cats = [];
+        for (let i = 0; i < catData.id.length; i++) {
+          cats.push({ nid: catData.NocoDB_Id[i], name: catData.Categorie[i] });
+        }
+        cats.sort((a, b) => a.nid - b.nid);
+        this.GROUP_ORDER = cats.map(c => c.name);
+        this.GROUP_COLORS = {};
+        cats.forEach((c, i) => { this.GROUP_COLORS[c.name] = CAT_PALETTE[i % CAT_PALETTE.length]; });
+
+        const varieties = [];
+        for (let i = 0; i < varData.id.length; i++) {
+          varieties.push({
+            id: varData.id[i], NocoDB_Id: varData.NocoDB_Id[i],
+            Variete: varData.Variete[i], Espece: varData.Espece[i],
+            Rendement_cible_kg: varData.Rendement_cible_kg[i] || 0,
+            Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i] || 0) : (varData.Densite_ha ? (varData.Densite_ha[i] || 0) : 0)),
+            Groupe_commercial: varData.Categorie_ref ? (varData.Categorie_ref[i] || '') : (varData.Groupe_commercial ? (varData.Groupe_commercial[i] || '') : ''),
+            avgPrix: 0
+          });
+        }
+
+        const priceMap = {};
+        for (let i = 0; i < prxData.id.length; i++) {
+          const vid = prxData.Varietes_id[i], px = prxData.Prix_kg_EUR[i];
+          if (vid && px) { if (!priceMap[vid]) priceMap[vid] = []; priceMap[vid].push(px); }
+        }
+        varieties.forEach(v => { const p = priceMap[v.NocoDB_Id]; if (p && p.length) v.avgPrix = p.reduce((a, b) => a + b, 0) / p.length; });
+
+        const scenarios = [];
+        for (let i = 0; i < parData.id.length; i++) {
+          scenarios.push({
+            id: parData.id[i], Title: parData.Title[i],
+            Coeff_rendement: parData.Coeff_rendement[i] || .6, Coeff_prix: parData.Coeff_prix[i] || .5,
+            Densite_arbres_ha: parData.Densite_arbres_ha[i] || 1000
+          });
+        }
+        scenarios.sort((a, b) => a.Coeff_rendement - b.Coeff_rendement);
+
+        this.varieties = varieties.sort((a, b) => a.Variete.localeCompare(b.Variete));
+        this.scenarios = scenarios;
+
+        await this.loadJardins();
+        this.loaded = true;
+      } catch (e) {
+        console.error('Grist error:', e);
+        this.loadStandalone();
+      }
+    },
+
+    async loadJardins() {
+      try {
+        const jData = await grist.docApi.fetchTable('Simulation_Jardins');
+        this.jardins = [];
+        for (let i = 0; i < jData.id.length; i++) {
+          this.jardins.push({
+            id: jData.id[i], NocoDB_Id: jData.NocoDB_Id[i],
+            Title: jData.Title[i], Strategie: jData.Strategie[i]
+          });
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    loadStandalone() {
+      this.scenarios = [
+        { id: 1, Title: 'Pessimiste', Coeff_rendement: .6, Coeff_prix: .5 },
+        { id: 2, Title: 'Normal', Coeff_rendement: .8, Coeff_prix: .75 },
+        { id: 3, Title: 'Optimiste', Coeff_rendement: 1, Coeff_prix: .9 }
+      ];
+      this.varieties = [
+        { NocoDB_Id: 140, Variete: 'Yuzu (standard)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75, Densite_ha: 0, Groupe_commercial: '🌿 Papédas et agrumes d\'Asie orientale' },
+        { NocoDB_Id: 178, Variete: 'Green', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200, Densite_ha: 0, Groupe_commercial: '🌱 Agrumes australiens' },
+        { NocoDB_Id: 205, Variete: 'Bergamote Castagnaro', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19, Densite_ha: 0, Groupe_commercial: '🟠 Bigaradiers et bergamotiers' },
+        { NocoDB_Id: 224, Variete: 'Main de Bouddha', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5, Densite_ha: 0, Groupe_commercial: '🟡 Cédratiers' },
+        { NocoDB_Id: 1, Variete: 'Owari', Espece: 'Mandarine Satsuma', Rendement_cible_kg: 75, avgPrix: 3.5, Densite_ha: 0, Groupe_commercial: '🍊 Mandariniers' },
+        { NocoDB_Id: 50, Variete: 'Eureka', Espece: 'Citron', Rendement_cible_kg: 60, avgPrix: 2.8, Densite_ha: 0, Groupe_commercial: '🍋 Citronniers' }
+      ];
+      const standaloneGroups = [...new Set(Object.values(ESPECE_GROUP))];
+      this.GROUP_ORDER = standaloneGroups;
+      this.GROUP_COLORS = {};
+      standaloneGroups.forEach((g, i) => { this.GROUP_COLORS[g] = CAT_PALETTE[i % CAT_PALETTE.length]; });
+      this.loaded = true;
+    },
+
+    async loadSimulation() {
+      const jid = this.loadedJardinId;
+      if (!jid) return;
+      try {
+        const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
+        const n = mixData.id.length;
+        const newMix = [];
+        const jardin = this.jardins.find(j => j.id === jid);
+        for (let i = 0; i < n; i++) {
+          if (mixData.Jardins_id[i] === jardin?.NocoDB_Id) {
+            const vid = mixData.Varietes_id[i];
+            const nb = mixData.Nb_arbres[i] || 0;
+            const v = this.varieties.find(x => x.NocoDB_Id === vid);
+            if (v) {
+              newMix.push({ NocoDB_Id: vid, _nb: nb });
+            }
+          }
+        }
+        if (newMix.length > 0) {
+          const minNb = Math.min(...newMix.map(m => m._nb).filter(n => n > 0)) || 1;
+          this.mix = newMix.map(m => ({
+            NocoDB_Id: m.NocoDB_Id,
+            parts: Math.max(1, Math.round(m._nb / minNb))
+          }));
+          this.saveName = jardin ? jardin.Title : '';
+        }
+      } catch (e) { console.error('Load error:', e); }
+    },
+
+    async saveSimulation() {
+      const name = this.saveName || ('Simulation ' + new Date().toLocaleDateString('fr-FR'));
+      if (this.mix.length === 0) return;
+      try {
+        const sc = this.scenario;
+        const paramNocId = this.scenarios.findIndex(s => s === sc) + 1;
+        const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
+        const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
+
+        let jardinNoco = null;
+        let jardinGristId = null;
+        for (let i = 0; i < jardinsData.id.length; i++) {
+          if (jardinsData.Title[i] === name) {
+            jardinNoco = jardinsData.NocoDB_Id[i];
+            jardinGristId = jardinsData.id[i];
+            break;
+          }
+        }
+
+        const tJardins = grist.getTable('Simulation_Jardins');
+        const tMix = grist.getTable('Simulation_Mix_Varietal');
+
+        if (jardinGristId) {
+          const oldMixIds = [];
+          for (let i = 0; i < mixData.id.length; i++) {
+            if (mixData.Jardins_id[i] === jardinNoco) oldMixIds.push(mixData.id[i]);
+          }
+          if (oldMixIds.length) await tMix.destroy(oldMixIds);
+          await tJardins.update([{ id: jardinGristId, fields: { Parametres_id: paramNocId } }]);
+        } else {
+          jardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
+          const ids = await tJardins.create([{
+            fields: { NocoDB_Id: jardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
+          }]);
+          jardinGristId = ids[0];
+        }
+
+        let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
+        const totalParts = this.totalParts;
+        const mixRows = this.mix.map((m, i) => {
+          const v = this.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+          const d = this.getDensity(v);
+          const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
+          const nb = Math.round(d * pct / 100);
+          maxMixNoco++;
+          return {
+            fields: {
+              NocoDB_Id: maxMixNoco,
+              Title: name + '-' + (i + 1),
+              Nb_arbres: nb,
+              Jardins_id: jardinNoco,
+              Varietes_id: m.NocoDB_Id
+            }
+          };
+        });
+        await tMix.create(mixRows);
+
+        await this.loadJardins();
+        this.saveName = name;
+        this.loadedJardinId = jardinGristId;
+        alert('Simulation "' + name + '" sauvegardée !');
+      } catch (e) {
+        console.error('Save error:', e);
+        alert('Erreur: ' + e.message);
+      }
     }
-
-    const priceMap={};
-    for (let i=0;i<prxData.id.length;i++) {
-      const vid=prxData.Varietes_id[i], px=prxData.Prix_kg_EUR[i];
-      if(vid&&px){if(!priceMap[vid])priceMap[vid]=[];priceMap[vid].push(px);}
-    }
-    varieties.forEach(v=>{const p=priceMap[v.NocoDB_Id];if(p&&p.length)v.avgPrix=p.reduce((a,b)=>a+b,0)/p.length;});
-
-    const scenarios=[];
-    for(let i=0;i<parData.id.length;i++){
-      scenarios.push({id:parData.id[i],Title:parData.Title[i],
-        Coeff_rendement:parData.Coeff_rendement[i]||.6,Coeff_prix:parData.Coeff_prix[i]||.5,
-        Densite_arbres_ha:parData.Densite_arbres_ha[i]||1000});
-    }
-    scenarios.sort((a,b)=>a.Coeff_rendement-b.Coeff_rendement);
-
-    S.varieties=varieties.sort((a,b)=>a.Variete.localeCompare(b.Variete));
-    S.scenarios=scenarios;
-
-    await loadJardins();
-    S.loaded=true;
-    render();
-  } catch(e) { console.error('Grist error:',e); loadStandalone(); }
+  };
 }
-
-function loadStandalone() {
-  S.scenarios=[
-    {id:1,Title:'Pessimiste',Coeff_rendement:.6,Coeff_prix:.5},
-    {id:2,Title:'Normal',Coeff_rendement:.8,Coeff_prix:.75},
-    {id:3,Title:'Optimiste',Coeff_rendement:1,Coeff_prix:.9}
-  ];
-  S.varieties=[
-    {NocoDB_Id:140,Variete:'Yuzu (standard)',Espece:'Yuzu',Rendement_cible_kg:25,avgPrix:50.75,Densite_ha:0,Groupe_commercial:'🌿 Papédas et agrumes d\'Asie orientale'},
-    {NocoDB_Id:178,Variete:'Green',Espece:'Citron caviar',Rendement_cible_kg:12.5,avgPrix:200,Densite_ha:0,Groupe_commercial:'🌱 Agrumes australiens'},
-    {NocoDB_Id:205,Variete:'Bergamote Castagnaro',Espece:'Bergamote',Rendement_cible_kg:40,avgPrix:19,Densite_ha:0,Groupe_commercial:'🟠 Bigaradiers et bergamotiers'},
-    {NocoDB_Id:224,Variete:'Main de Bouddha',Espece:'Main de Bouddha',Rendement_cible_kg:17.5,avgPrix:37.5,Densite_ha:0,Groupe_commercial:'🟡 Cédratiers'},
-    {NocoDB_Id:1,Variete:'Owari',Espece:'Mandarine Satsuma',Rendement_cible_kg:75,avgPrix:3.5,Densite_ha:0,Groupe_commercial:'🍊 Mandariniers'},
-    {NocoDB_Id:50,Variete:'Eureka',Espece:'Citron',Rendement_cible_kg:60,avgPrix:2.8,Densite_ha:0,Groupe_commercial:'🍋 Citronniers'}
-  ];
-  // Standalone fallback: set GROUP_ORDER & GROUP_COLORS from ESPECE_GROUP
-  const standaloneGroups = [...new Set(Object.values(ESPECE_GROUP))];
-  GROUP_ORDER = standaloneGroups;
-  GROUP_COLORS = {};
-  standaloneGroups.forEach((g,i) => { GROUP_COLORS[g] = CAT_PALETTE[i % CAT_PALETTE.length]; });
-  S.loaded=true; render();
-}
-
-try {
-  grist.ready({requiredAccess:'full'});
-  grist.onRecords(()=>loadFromGrist());
-  loadFromGrist();
-} catch(e) { loadStandalone(); }
 </script>
 </body>
 </html>
