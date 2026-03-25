@@ -259,7 +259,7 @@
           </div>
           <div class="variety-dropdown" :class="{open:filteredVarieties.length>0}">
             <template x-for="v of filteredVarieties">
-              <div class="variety-item" @click="addVariety(v.NocoDB_Id)">
+              <div class="variety-item" @click="addVariety(v.id)">
                 <div>
                   <span class="v-name" x-text="v.Variete"></span><span class="v-espece" x-text="v.Espece"></span>
                   <template x-if="getGroup(v)">
@@ -294,15 +294,15 @@
 
           <div class="mix-list">
             <div x-show="mix.length===0" class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>
-            <template x-for="(item, idx) in sortedMix" :key="item.m.NocoDB_Id">
-              <div class="mix-row" x-show="getVarietyById(item.m.NocoDB_Id)">
+            <template x-for="(item, idx) in sortedMix" :key="item.m.id">
+              <div class="mix-row" x-show="getVarietyById(item.m.id)">
                 <div class="mix-info">
-                  <div class="mix-name" x-text="getVarietyById(item.m.NocoDB_Id)?.Variete"></div>
-                  <div class="mix-espece" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); if(!v) return ''; const d=getDensity(v); return `${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}`; })()"></div>
+                  <div class="mix-name" x-text="getVarietyById(item.m.id)?.Variete"></div>
+                  <div class="mix-espece" x-text="(() => { const v=getVarietyById(item.m.id); if(!v) return ''; const d=getDensity(v); return `${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}`; })()"></div>
                 </div>
                 <div class="mix-controls">
-                  <span class="mix-ca" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); return v ? fmtCompact(getRentaHa(v))+'/ha' : ''; })()"></span>
-                  <span class="mix-trees" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); if(!v) return ''; return Math.round(getDensity(v)*getPct(item.m)/100)+' arb.'; })()"></span>
+                  <span class="mix-ca" x-text="(() => { const v=getVarietyById(item.m.id); return v ? fmtCompact(getRentaHa(v))+'/ha' : ''; })()"></span>
+                  <span class="mix-trees" x-text="(() => { const v=getVarietyById(item.m.id); if(!v) return ''; return Math.round(getDensity(v)*getPct(item.m)/100)+' arb.'; })()"></span>
                   <span class="mix-pct" x-text="`${fmt(getPct(item.m),1)}%`"></span>
                   <div class="parts-group">
                     <button class="parts-btn" @click="changeParts(item.i,-1)">−</button>
@@ -458,7 +458,7 @@
                         <td class="r" x-text="fmt(r.nbArbres)"></td>
                         <td class="r" x-text="`${fmt(r.rendEff,1)} kg`"></td>
                         <td class="r" style="font-weight:600">
-                          <div x-text="fmtEur(r.ca)" style="margin-bottom:2px"></div>
+                          <div style="margin-bottom:2px"><span x-text="fmtEur(r.ca)"></span> <span style="color:var(--text-dim);font-size:10px" x-text="`(${computed.totalCA>0?(r.ca/computed.totalCA*100).toFixed(1):'0'}%)`"></span></div>
                           <div class="bar-bg"><div class="bar-fill" :style="`width:${(r.ca/Math.max(...computed.rows.map(x=>x.ca),1)*100).toFixed(1)}%`"></div></div>
                         </td>
                         <td class="r" x-text="fmtCompact(r.rentaHa)"></td>
@@ -561,8 +561,8 @@ function simulator() {
     get filteredVarieties() {
       const q = this.searchQuery.toLowerCase();
       if (q.length < 2) return [];
-      const inMix = new Set(this.mix.map(m => m.NocoDB_Id));
-      return this.varieties.filter(v => !inMix.has(v.NocoDB_Id) &&
+      const inMix = new Set(this.mix.map(m => m.id));
+      return this.varieties.filter(v => !inMix.has(v.id) &&
         (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || this.getGroup(v).toLowerCase().includes(q))
       ).slice(0, 25);
     },
@@ -571,7 +571,7 @@ function simulator() {
       const sc = this.scenario;
       const totalParts = this.totalParts;
       const rows = this.mix.map(m => {
-        const v = this.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+        const v = this.varieties.find(x => x.id === m.id);
         if (!v) return null;
         const density = this.getDensity(v);
         const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
@@ -583,7 +583,7 @@ function simulator() {
         const ca = yieldKg * prixEff;
         const rentaHa = density * rendEff * prixEff;
         return {
-          NocoDB_Id: v.NocoDB_Id, Variete: v.Variete, Espece: v.Espece,
+          id: v.id, Variete: v.Variete, Espece: v.Espece,
           Groupe: this.getGroup(v),
           minPlantPrice: v.minPlantPrice || null,
           parts: m.parts, pct, density, nbArbres, rendEff, prixEff, yieldKg, ca, rentaHa
@@ -619,22 +619,22 @@ function simulator() {
       switch (this.mixSort) {
         case 'ca':
           return indexed.sort((a, b) => {
-            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
-            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            const va = this.varieties.find(x => x.id === a.m.id);
+            const vb = this.varieties.find(x => x.id === b.m.id);
             return (this.getRentaHa(vb) || 0) - (this.getRentaHa(va) || 0);
           });
         case 'trees':
           return indexed.sort((a, b) => {
-            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
-            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            const va = this.varieties.find(x => x.id === a.m.id);
+            const vb = this.varieties.find(x => x.id === b.m.id);
             const na = va ? Math.round(this.getDensity(va) * this.getPct(a.m) / 100) : 0;
             const nb = vb ? Math.round(this.getDensity(vb) * this.getPct(b.m) / 100) : 0;
             return nb - na;
           });
         case 'alpha':
           return indexed.sort((a, b) => {
-            const va = this.varieties.find(x => x.NocoDB_Id === a.m.NocoDB_Id);
-            const vb = this.varieties.find(x => x.NocoDB_Id === b.m.NocoDB_Id);
+            const va = this.varieties.find(x => x.id === a.m.id);
+            const vb = this.varieties.find(x => x.id === b.m.id);
             return (va ? va.Variete : '').localeCompare(vb ? vb.Variete : '');
           });
         default:
@@ -701,8 +701,8 @@ function simulator() {
       return (v && v.Groupe_commercial) || (v ? ESPECE_GROUP[v.Espece] : '') || '';
     },
 
-    getVarietyById(nocoId) {
-      return this.varieties.find(x => x.NocoDB_Id === nocoId);
+    getVarietyById(vid) {
+      return this.varieties.find(x => x.id === vid);
     },
 
     getPct(m) {
@@ -747,9 +747,9 @@ function simulator() {
       this.activeScenario = s;
     },
 
-    addVariety(nocoId) {
-      if (this.mix.find(m => m.NocoDB_Id === nocoId)) return;
-      this.mix.push({ NocoDB_Id: nocoId, parts: 1 });
+    addVariety(vid) {
+      if (this.mix.find(m => m.id === vid)) return;
+      this.mix.push({ id: vid, parts: 1 });
       this.searchQuery = '';
     },
 
@@ -804,7 +804,7 @@ function simulator() {
 
         const cats = [];
         for (let i = 0; i < catData.id.length; i++) {
-          cats.push({ nid: catData.NocoDB_Id[i], name: catData.Categorie[i] });
+          cats.push({ nid: catData.id[i], name: catData.Categorie[i] });
         }
         cats.sort((a, b) => a.nid - b.nid);
         this.GROUP_ORDER = cats.map(c => c.name);
@@ -814,7 +814,7 @@ function simulator() {
         const varieties = [];
         for (let i = 0; i < varData.id.length; i++) {
           varieties.push({
-            id: varData.id[i], NocoDB_Id: varData.NocoDB_Id[i],
+            id: varData.id[i],
             Variete: varData.Variete[i], Espece: varData.Espece[i],
             Rendement_cible_kg: varData.Rendement_cible_kg[i] || 0,
             Densite_ha: (varData.Densite_arbres_ha_ ? (varData.Densite_arbres_ha_[i] || 0) : (varData.Densite_ha ? (varData.Densite_ha[i] || 0) : 0)),
@@ -828,7 +828,7 @@ function simulator() {
           const vid = prxData.Varietes_id[i], px = prxData.Prix_kg_EUR[i];
           if (vid && px) { if (!priceMap[vid]) priceMap[vid] = []; priceMap[vid].push(px); }
         }
-        varieties.forEach(v => { const p = priceMap[v.NocoDB_Id]; if (p && p.length) v.avgPrix = p.reduce((a, b) => a + b, 0) / p.length; });
+        varieties.forEach(v => { const p = priceMap[v.id]; if (p && p.length) v.avgPrix = p.reduce((a, b) => a + b, 0) / p.length; });
 
         // Plant prices: keep min price per variety
         const plantPriceMap = {};
@@ -838,7 +838,7 @@ function simulator() {
             if (!plantPriceMap[vid] || px < plantPriceMap[vid]) plantPriceMap[vid] = px;
           }
         }
-        varieties.forEach(v => { v.minPlantPrice = plantPriceMap[v.NocoDB_Id] || null; });
+        varieties.forEach(v => { v.minPlantPrice = plantPriceMap[v.id] || null; });
 
         const scenarios = [];
         for (let i = 0; i < parData.id.length; i++) {
@@ -867,7 +867,7 @@ function simulator() {
         this.jardins = [];
         for (let i = 0; i < jData.id.length; i++) {
           this.jardins.push({
-            id: jData.id[i], NocoDB_Id: jData.NocoDB_Id[i],
+            id: jData.id[i],
             Title: jData.Title[i], Strategie: jData.Strategie[i]
           });
         }
@@ -881,12 +881,12 @@ function simulator() {
         { id: 3, Title: 'Optimiste', Coeff_rendement: 1, Coeff_prix: .9 }
       ];
       this.varieties = [
-        { NocoDB_Id: 140, Variete: 'Yuzu (standard)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75, Densite_ha: 0, Groupe_commercial: '🌿 Papédas et agrumes d\'Asie orientale', minPlantPrice: 35 },
-        { NocoDB_Id: 178, Variete: 'Green', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200, Densite_ha: 0, Groupe_commercial: '🌱 Agrumes australiens', minPlantPrice: 25 },
-        { NocoDB_Id: 205, Variete: 'Bergamote Castagnaro', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19, Densite_ha: 0, Groupe_commercial: '🟠 Bigaradiers et bergamotiers', minPlantPrice: null },
-        { NocoDB_Id: 224, Variete: 'Main de Bouddha', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5, Densite_ha: 0, Groupe_commercial: '🟡 Cédratiers', minPlantPrice: 42 },
-        { NocoDB_Id: 1, Variete: 'Owari', Espece: 'Mandarine Satsuma', Rendement_cible_kg: 75, avgPrix: 3.5, Densite_ha: 0, Groupe_commercial: '🍊 Mandariniers', minPlantPrice: 18 },
-        { NocoDB_Id: 50, Variete: 'Eureka', Espece: 'Citron', Rendement_cible_kg: 60, avgPrix: 2.8, Densite_ha: 0, Groupe_commercial: '🍋 Citronniers', minPlantPrice: null }
+        { id: 140, Variete: 'Yuzu (standard)', Espece: 'Yuzu', Rendement_cible_kg: 25, avgPrix: 50.75, Densite_ha: 0, Groupe_commercial: '🌿 Papédas et agrumes d\'Asie orientale', minPlantPrice: 35 },
+        { id: 178, Variete: 'Green', Espece: 'Citron caviar', Rendement_cible_kg: 12.5, avgPrix: 200, Densite_ha: 0, Groupe_commercial: '🌱 Agrumes australiens', minPlantPrice: 25 },
+        { id: 205, Variete: 'Bergamote Castagnaro', Espece: 'Bergamote', Rendement_cible_kg: 40, avgPrix: 19, Densite_ha: 0, Groupe_commercial: '🟠 Bigaradiers et bergamotiers', minPlantPrice: null },
+        { id: 224, Variete: 'Main de Bouddha', Espece: 'Main de Bouddha', Rendement_cible_kg: 17.5, avgPrix: 37.5, Densite_ha: 0, Groupe_commercial: '🟡 Cédratiers', minPlantPrice: 42 },
+        { id: 1, Variete: 'Owari', Espece: 'Mandarine Satsuma', Rendement_cible_kg: 75, avgPrix: 3.5, Densite_ha: 0, Groupe_commercial: '🍊 Mandariniers', minPlantPrice: 18 },
+        { id: 50, Variete: 'Eureka', Espece: 'Citron', Rendement_cible_kg: 60, avgPrix: 2.8, Densite_ha: 0, Groupe_commercial: '🍋 Citronniers', minPlantPrice: null }
       ];
       const standaloneGroups = [...new Set(Object.values(ESPECE_GROUP))];
       this.GROUP_ORDER = standaloneGroups;
@@ -904,19 +904,19 @@ function simulator() {
         const newMix = [];
         const jardin = this.jardins.find(j => j.id === jid);
         for (let i = 0; i < n; i++) {
-          if (mixData.Jardins_id[i] === jardin?.NocoDB_Id) {
+          if (mixData.Jardins_id[i] === jardin?.id) {
             const vid = mixData.Varietes_id[i];
             const nb = mixData.Nb_arbres[i] || 0;
-            const v = this.varieties.find(x => x.NocoDB_Id === vid);
+            const v = this.varieties.find(x => x.id === vid);
             if (v) {
-              newMix.push({ NocoDB_Id: vid, _nb: nb });
+              newMix.push({ id: vid, _nb: nb });
             }
           }
         }
         if (newMix.length > 0) {
           const minNb = Math.min(...newMix.map(m => m._nb).filter(n => n > 0)) || 1;
           this.mix = newMix.map(m => ({
-            NocoDB_Id: m.NocoDB_Id,
+            id: m.id,
             parts: Math.max(1, Math.round(m._nb / minNb))
           }));
           this.saveName = jardin ? jardin.Title : '';
@@ -929,16 +929,14 @@ function simulator() {
       if (this.mix.length === 0) return;
       try {
         const sc = this.scenario;
-        const paramNocId = this.scenarios.findIndex(s => s === sc) + 1;
+        const paramId = sc.id;
         const jardinsData = await grist.docApi.fetchTable('Simulation_Jardins');
         const mixData = await grist.docApi.fetchTable('Simulation_Mix_Varietal');
 
-        let jardinNoco = null;
-        let jardinGristId = null;
+        let jardinId = null;
         for (let i = 0; i < jardinsData.id.length; i++) {
           if (jardinsData.Title[i] === name) {
-            jardinNoco = jardinsData.NocoDB_Id[i];
-            jardinGristId = jardinsData.id[i];
+            jardinId = jardinsData.id[i];
             break;
           }
         }
@@ -946,36 +944,32 @@ function simulator() {
         const tJardins = grist.getTable('Simulation_Jardins');
         const tMix = grist.getTable('Simulation_Mix_Varietal');
 
-        if (jardinGristId) {
+        if (jardinId) {
           const oldMixIds = [];
           for (let i = 0; i < mixData.id.length; i++) {
-            if (mixData.Jardins_id[i] === jardinNoco) oldMixIds.push(mixData.id[i]);
+            if (mixData.Jardins_id[i] === jardinId) oldMixIds.push(mixData.id[i]);
           }
           if (oldMixIds.length) await tMix.destroy(oldMixIds);
-          await tJardins.update([{ id: jardinGristId, fields: { Parametres_id: paramNocId } }]);
+          await tJardins.update([{ id: jardinId, fields: { Parametres_id: paramId } }]);
         } else {
-          jardinNoco = Math.max(0, ...jardinsData.NocoDB_Id) + 1;
           const ids = await tJardins.create([{
-            fields: { NocoDB_Id: jardinNoco, Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramNocId }
+            fields: { Title: name, Strategie: 'Widget', Description: 'Créé depuis le simulateur', Parametres_id: paramId }
           }]);
-          jardinGristId = ids[0];
+          jardinId = ids[0];
         }
 
-        let maxMixNoco = Math.max(0, ...mixData.NocoDB_Id);
         const totalParts = this.totalParts;
         const mixRows = this.mix.map((m, i) => {
-          const v = this.varieties.find(x => x.NocoDB_Id === m.NocoDB_Id);
+          const v = this.varieties.find(x => x.id === m.id);
           const d = this.getDensity(v);
           const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
           const nb = Math.round(d * pct / 100);
-          maxMixNoco++;
           return {
             fields: {
-              NocoDB_Id: maxMixNoco,
               Title: name + '-' + (i + 1),
               Nb_arbres: nb,
-              Jardins_id: jardinNoco,
-              Varietes_id: m.NocoDB_Id
+              Jardins_id: jardinId,
+              Varietes_id: m.id
             }
           };
         });
@@ -983,7 +977,7 @@ function simulator() {
 
         await this.loadJardins();
         this.saveName = name;
-        this.loadedJardinId = jardinGristId;
+        this.loadedJardinId = jardinId;
         alert('Simulation "' + name + '" sauvegardée !');
       } catch (e) {
         console.error('Save error:', e);
