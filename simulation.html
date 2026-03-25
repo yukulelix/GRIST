@@ -293,31 +293,25 @@
           </div>
 
           <div class="mix-list">
-            <template x-if="mix.length===0">
-              <div class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>
-            </template>
-            <template x-if="mix.length>0">
-              <template x-for="(m,i) of sortedMix">
-                <template x-if="getVarietyById(m.NocoDB_Id)">
-                  <div class="mix-row" x-data="{v:getVarietyById(m.NocoDB_Id),d:getDensity(getVarietyById(m.NocoDB_Id)),pct:getPct(m),nb:Math.round(getDensity(getVarietyById(m.NocoDB_Id))*getPct(m)/100),rentaHa:getRentaHa(getVarietyById(m.NocoDB_Id))}">
-                    <div class="mix-info">
-                      <div class="mix-name" x-text="v.Variete"></div>
-                      <div class="mix-espece" x-text="`${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}`"></div>
-                    </div>
-                    <div class="mix-controls">
-                      <span class="mix-ca" :title="`Rentabilité si 100% de cette variété`" x-text="fmtCompact(rentaHa)+'/ha'"></span>
-                      <span class="mix-trees" x-text="`${nb} arb.`"></span>
-                      <span class="mix-pct" x-text="`${fmt(pct,1)}%`"></span>
-                      <div class="parts-group">
-                        <button class="parts-btn" @click="changeParts(i,-1)">−</button>
-                        <input type="number" class="parts-input" x-model.number="m.parts" min="1" max="99" @change="setParts(i,m.parts)">
-                        <button class="parts-btn" @click="changeParts(i,1)">+</button>
-                      </div>
-                      <button class="mix-remove" @click="removeVariety(i)">&times;</button>
-                    </div>
+            <div x-show="mix.length===0" class="empty-state"><div class="icon">🌿</div><p>Recherchez et ajoutez des variétés</p></div>
+            <template x-for="(item, idx) in sortedMix" :key="item.m.NocoDB_Id">
+              <div class="mix-row" x-show="getVarietyById(item.m.NocoDB_Id)">
+                <div class="mix-info">
+                  <div class="mix-name" x-text="getVarietyById(item.m.NocoDB_Id)?.Variete"></div>
+                  <div class="mix-espece" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); if(!v) return ''; const d=getDensity(v); return `${v.Espece} · ${d}/ha · ${v.avgPrix>0?fmt(v.avgPrix,2)+' €/kg':'∅'}`; })()"></div>
+                </div>
+                <div class="mix-controls">
+                  <span class="mix-ca" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); return v ? fmtCompact(getRentaHa(v))+'/ha' : ''; })()"></span>
+                  <span class="mix-trees" x-text="(() => { const v=getVarietyById(item.m.NocoDB_Id); if(!v) return ''; return Math.round(getDensity(v)*getPct(item.m)/100)+' arb.'; })()"></span>
+                  <span class="mix-pct" x-text="`${fmt(getPct(item.m),1)}%`"></span>
+                  <div class="parts-group">
+                    <button class="parts-btn" @click="changeParts(item.i,-1)">−</button>
+                    <input type="number" class="parts-input" :value="item.m.parts" min="1" max="99" @change="setParts(item.i,parseInt($event.target.value)||1)">
+                    <button class="parts-btn" @click="changeParts(item.i,1)">+</button>
                   </div>
-                </template>
-              </template>
+                  <button class="mix-remove" @click="removeVariety(item.i)">&times;</button>
+                </div>
+              </div>
             </template>
           </div>
         </div>
