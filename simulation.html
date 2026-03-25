@@ -480,32 +480,6 @@ function renderResults(res) {
 
     ${renderGroupSection(res)}
 
-    <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
-    <table class="breakdown-table">
-      <thead><tr>
-        <th>Variété</th><th class="r">Parts</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
-        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part CA</th>
-      </tr></thead>
-      <tbody>
-        ${res.rows.map(r => `<tr>
-          <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:10px">${r.Espece}</span></td>
-          <td class="r" style="font-weight:600">${r.parts}</td>
-          <td class="r">${fmt(r.pct,1)}%</td>
-          <td class="r" style="color:var(--accent-light)">${r.density}</td>
-          <td class="r">${fmt(r.nbArbres)}</td>
-          <td class="r">${fmt(r.rendEff,1)} kg</td>
-          <td class="r">${fmt(r.prixEff,2)} €</td>
-          <td class="r" style="font-weight:600">${fmtEur(r.ca)}</td>
-          <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(r.ca/maxCA*100).toFixed(1)}%"></div></div></td>
-        </tr>`).join('')}
-        <tr class="total-row">
-          <td>Total</td><td class="r">${getTotalParts()}</td><td class="r">100%</td>
-          <td></td><td class="r">${fmt(res.totalTrees)}</td><td></td><td></td>
-          <td class="r" style="font-size:13px">${fmtEur(res.totalCA)}</td><td></td>
-        </tr>
-      </tbody>
-    </table>
-
     <div class="charts-row">
       <div class="chart-section">
         <div class="breakdown-title">CA par variété</div>
@@ -538,6 +512,32 @@ function renderResults(res) {
         </div>
       </div>
     </div>
+
+    <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
+    <table class="breakdown-table">
+      <thead><tr>
+        <th>Variété</th><th class="r">Parts</th><th class="r">%</th><th class="r">Densité</th><th class="r">Arbres</th>
+        <th class="r">Rdt eff.</th><th class="r">Prix eff.</th><th class="r">CA</th><th>Part CA</th>
+      </tr></thead>
+      <tbody>
+        ${res.rows.map(r => `<tr>
+          <td><strong>${r.Variete}</strong><br><span style="color:var(--text-dim);font-size:10px">${r.Espece}</span></td>
+          <td class="r" style="font-weight:600">${r.parts}</td>
+          <td class="r">${fmt(r.pct,1)}%</td>
+          <td class="r" style="color:var(--accent-light)">${r.density}</td>
+          <td class="r">${fmt(r.nbArbres)}</td>
+          <td class="r">${fmt(r.rendEff,1)} kg</td>
+          <td class="r">${fmt(r.prixEff,2)} €</td>
+          <td class="r" style="font-weight:600">${fmtEur(r.ca)}</td>
+          <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(r.ca/maxCA*100).toFixed(1)}%"></div></div></td>
+        </tr>`).join('')}
+        <tr class="total-row">
+          <td>Total</td><td class="r">${getTotalParts()}</td><td class="r">100%</td>
+          <td></td><td class="r">${fmt(res.totalTrees)}</td><td></td><td></td>
+          <td class="r" style="font-size:13px">${fmtEur(res.totalCA)}</td><td></td>
+        </tr>
+      </tbody>
+    </table>
   </div>`;
 }
 
