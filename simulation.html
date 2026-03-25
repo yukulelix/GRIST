@@ -176,32 +176,20 @@
     .bar-bg { height:7px; border-radius:3px; background:var(--bg); overflow:hidden; }
     .bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
 
-    /* ── Stacked bar charts ─────────── */
-    .stacked-section { margin-top:16px; }
-    .stacked-bar { display:flex; height:32px; border-radius:6px; overflow:hidden; position:relative; background:var(--bg); }
-    .stacked-seg {
-      height:100%; display:flex; align-items:center; justify-content:center; position:relative;
-      cursor:default; transition:opacity .15s; overflow:hidden; min-width:0;
+    /* ── Donut grid 2×2 ─────────────── */
+    .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+    @media (max-width:700px) { .charts-grid { grid-template-columns:1fr; } }
+    .chart-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;
     }
-    .stacked-seg:hover { opacity:.85; }
-    .stacked-seg-text { font-size:10px; font-weight:600; color:#fff; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.4); padding:0 4px; }
-    .stacked-legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:8px; }
-    .stacked-legend-item { display:flex; align-items:center; gap:5px; font-size:11px; cursor:default; position:relative; }
-    .stacked-legend-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
-    .stacked-legend-name { white-space:nowrap; }
-    .stacked-legend-pct { color:var(--text-dim); font-variant-numeric:tabular-nums; }
-
-    /* Tooltip on segments */
-    .stacked-seg .seg-tooltip, .stacked-legend-item .seg-tooltip {
-      display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-      background:#1e2030; border:1px solid var(--border); border-radius:8px; padding:8px 12px;
-      z-index:100; white-space:nowrap; font-size:11px; color:var(--text); box-shadow:0 4px 16px rgba(0,0,0,.4);
-      pointer-events:none;
-    }
-    .stacked-seg:hover .seg-tooltip, .stacked-legend-item:hover .seg-tooltip { display:block; }
-    .seg-tooltip .tt-title { font-weight:600; margin-bottom:4px; }
-    .seg-tooltip .tt-line { color:var(--text-dim); line-height:1.6; }
-    .seg-tooltip .tt-val { color:var(--text); font-weight:600; }
+    .chart-card-title { font-size:12px; font-weight:600; margin-bottom:10px; text-align:center; }
+    .donut-wrap { display:flex; align-items:center; gap:16px; justify-content:center; flex-wrap:wrap; }
+    .donut-svg { width:140px; height:140px; flex-shrink:0; }
+    .donut-legend { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; }
+    .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+    .legend-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:8px; font-variant-numeric:tabular-nums; white-space:nowrap; }
 
     /* ── Scrollbar ────────────────────── */
     ::-webkit-scrollbar { width:5px; }
@@ -471,8 +459,7 @@ function renderResults(res) {
       </div>
     </div>
 
-    ${renderCategoryBars(res)}
-    ${renderVarietyBars(res)}
+    ${renderChartsGrid(res)}
 
     <div class="breakdown-title" style="margin-top:20px">Détail par variété</div>
     <table class="breakdown-table">
@@ -502,83 +489,97 @@ function renderResults(res) {
   </div>`;
 }
 
-function renderCategoryBars(res) {
-  if (res.groups.length === 0) return '';
-  return `
-    <div class="stacked-section">
-      <div class="breakdown-title">CA par catégorie botanique — ${fmtEur(res.totalCA)}/ha</div>
-      <div class="stacked-bar">
-        ${res.groups.map(g => {
-          const color = GROUP_COLORS[g.name] || '#888';
-          const pct = res.totalCA > 0 ? (g.ca / res.totalCA * 100) : 0;
-          if (pct <= 0) return '';
-          return `<div class="stacked-seg" style="width:${pct.toFixed(2)}%;background:${color}">
-            ${pct >= 8 ? `<span class="stacked-seg-text">${Math.round(pct)}%</span>` : ''}
-            <div class="seg-tooltip">
-              <div class="tt-title">${g.name}</div>
-              <div class="tt-line"><span class="tt-val">${fmtEur(g.ca)}</span> — ${fmt(pct,1)}% du CA</div>
-              <div class="tt-line"><span class="tt-val">${g.varieties}</span> variété${g.varieties>1?'s':''} · <span class="tt-val">${fmt(g.nbArbres)}</span> arbres</div>
-              <div class="tt-line"><span class="tt-val">${fmt(g.yieldKg)}</span> kg de production</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="stacked-legend">
-        ${res.groups.map(g => {
-          const color = GROUP_COLORS[g.name] || '#888';
-          const pct = res.totalCA > 0 ? (g.ca / res.totalCA * 100) : 0;
-          if (pct <= 0) return '';
-          return `<div class="stacked-legend-item">
-            <span class="stacked-legend-dot" style="background:${color}"></span>
-            <span class="stacked-legend-name">${g.name}</span>
-            <span class="stacked-legend-pct">${fmt(pct,1)}%</span>
-            <div class="seg-tooltip">
-              <div class="tt-title">${g.name}</div>
-              <div class="tt-line"><span class="tt-val">${fmtEur(g.ca)}</span> — ${fmt(pct,1)}% du CA</div>
-              <div class="tt-line"><span class="tt-val">${g.varieties}</span> variété${g.varieties>1?'s':''} · <span class="tt-val">${fmt(g.nbArbres)}</span> arbres</div>
-              <div class="tt-line"><span class="tt-val">${fmt(g.yieldKg)}</span> kg</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
+function renderDonut(items, total, colors, centerLine1, centerLine2) {
+  if (total===0) return '<div style="color:var(--text-dim);text-align:center;padding:20px">—</div>';
+  const cx=70,cy=70,R=65,r=40; let cum=-Math.PI/2; let paths='';
+  items.forEach((item,i) => {
+    const f=item.value/total; if(f<=0) return;
+    const a=f*Math.PI*2;
+    const col = Array.isArray(colors) ? (colors[i%colors.length]) : colors;
+    const x1o=cx+R*Math.cos(cum),y1o=cy+R*Math.sin(cum),x1i=cx+r*Math.cos(cum),y1i=cy+r*Math.sin(cum);
+    cum+=a;
+    const x2o=cx+R*Math.cos(cum),y2o=cy+R*Math.sin(cum),x2i=cx+r*Math.cos(cum),y2i=cy+r*Math.sin(cum);
+    const lg=a>Math.PI?1:0;
+    paths+=`<path d="M${x1o},${y1o} A${R},${R} 0 ${lg} 1 ${x2o},${y2o} L${x2i},${y2i} A${r},${r} 0 ${lg} 0 ${x1i},${y1i} Z" fill="${col}" opacity=".85"/>`;
+  });
+  return `<svg class="donut-svg" viewBox="0 0 140 140">${paths}
+    <text x="${cx}" y="${cy-3}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="700">${centerLine1}</text>
+    <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text-dim)" font-size="8">${centerLine2}</text>
+  </svg>`;
 }
 
-function renderVarietyBars(res) {
+function renderChartsGrid(res) {
   if (res.rows.length === 0) return '';
+  const totalSurface = 100; // 1 hectare = 100%
+
+  // Group colors array
+  const gColors = res.groups.map(g => GROUP_COLORS[g.name]||'#888');
+  // Variety colors array
+  const vColors = res.rows.map((_,i) => COLORS[i % COLORS.length]);
+
   return `
-    <div class="stacked-section">
-      <div class="breakdown-title">CA par variété</div>
-      <div class="stacked-bar">
-        ${res.rows.map((r,i) => {
-          const color = COLORS[i % COLORS.length];
-          const pct = res.totalCA > 0 ? (r.ca / res.totalCA * 100) : 0;
-          if (pct <= 0) return '';
-          const group = getGroup(S.varieties.find(v=>v.NocoDB_Id===r.NocoDB_Id)||{});
-          return `<div class="stacked-seg" style="width:${pct.toFixed(2)}%;background:${color}">
-            ${pct >= 8 ? `<span class="stacked-seg-text">${Math.round(pct)}%</span>` : ''}
-            <div class="seg-tooltip">
-              <div class="tt-title">${r.Variete}</div>
-              <div class="tt-line" style="color:var(--text-dim);font-size:10px">${r.Espece} · ${group}</div>
-              <div class="tt-line"><span class="tt-val">${fmtEur(r.ca)}</span> — ${fmt(pct,1)}% du CA</div>
-              <div class="tt-line"><span class="tt-val">${fmt(r.nbArbres)}</span> arbres · densité ${r.density}/ha</div>
-              <div class="tt-line">Rdt: <span class="tt-val">${fmt(r.rendEff,1)} kg</span> · Prix: <span class="tt-val">${fmt(r.prixEff,2)} €/kg</span></div>
-              <div class="tt-line">Parts: <span class="tt-val">${r.parts}</span> (${fmt(r.pct,1)}%)</div>
-            </div>
-          </div>`;
-        }).join('')}
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">CA par catégorie</div>
+        <div class="donut-wrap">
+          ${renderDonut(res.groups.map(g=>({label:g.name,value:g.ca})), res.totalCA, gColors, fmtEur(res.totalCA), '/ hectare')}
+          <div class="donut-legend">
+            ${res.groups.map((g,i) => {
+              const pct = res.totalCA>0 ? (g.ca/res.totalCA*100) : 0;
+              return pct > 0 ? `<div class="legend-item">
+                <span class="legend-dot" style="background:${gColors[i]}"></span>
+                <span class="legend-name">${g.name}</span>
+                <span class="legend-value">${fmt(pct,1)}%</span>
+              </div>` : '';
+            }).join('')}
+          </div>
+        </div>
       </div>
-      <div class="stacked-legend">
-        ${res.rows.map((r,i) => {
-          const color = COLORS[i % COLORS.length];
-          const pct = res.totalCA > 0 ? (r.ca / res.totalCA * 100) : 0;
-          if (pct <= 0) return '';
-          return `<div class="stacked-legend-item">
-            <span class="stacked-legend-dot" style="background:${color}"></span>
-            <span class="stacked-legend-name">${r.Variete}</span>
-            <span class="stacked-legend-pct">${fmt(pct,1)}%</span>
-          </div>`;
-        }).join('')}
+      <div class="chart-card">
+        <div class="chart-card-title">Surface par catégorie</div>
+        <div class="donut-wrap">
+          ${renderDonut(res.groups.map(g=>({label:g.name,value:g.pct})), totalSurface, gColors, '1 ha', 'surface')}
+          <div class="donut-legend">
+            ${res.groups.map((g,i) => {
+              return g.pct > 0 ? `<div class="legend-item">
+                <span class="legend-dot" style="background:${gColors[i]}"></span>
+                <span class="legend-name">${g.name}</span>
+                <span class="legend-value">${fmt(g.pct,1)}%</span>
+              </div>` : '';
+            }).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">CA par variété</div>
+        <div class="donut-wrap">
+          ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.ca})), res.totalCA, vColors, fmtEur(res.totalCA), '/ hectare')}
+          <div class="donut-legend">
+            ${res.rows.map((r,i) => {
+              const pct = res.totalCA>0 ? (r.ca/res.totalCA*100) : 0;
+              return pct > 0 ? `<div class="legend-item">
+                <span class="legend-dot" style="background:${vColors[i]}"></span>
+                <span class="legend-name">${r.Variete}</span>
+                <span class="legend-value">${fmt(pct,1)}%</span>
+              </div>` : '';
+            }).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Surface par variété</div>
+        <div class="donut-wrap">
+          ${renderDonut(res.rows.map(r=>({label:r.Variete,value:r.pct})), totalSurface, vColors, '1 ha', 'surface')}
+          <div class="donut-legend">
+            ${res.rows.map((r,i) => {
+              return r.pct > 0 ? `<div class="legend-item">
+                <span class="legend-dot" style="background:${vColors[i]}"></span>
+                <span class="legend-name">${r.Variete}</span>
+                <span class="legend-value">${fmt(r.pct,1)}%</span>
+              </div>` : '';
+            }).join('')}
+          </div>
+        </div>
       </div>
     </div>`;
 }
