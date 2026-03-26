@@ -201,7 +201,8 @@
     .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; }
     .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
     .legend-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
-    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:8px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:8px; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:38px; text-align:right; }
+    .legend-abs { color:var(--text-dim); font-size:9px; opacity:.7; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:50px; text-align:right; }
 
     /* ── Scrollbar ────────────────────── */
     ::-webkit-scrollbar { width:5px; }
@@ -359,6 +360,7 @@
                           <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
                           <span class="legend-name" x-text="g.name"></span>
                           <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(g.ca/computed.totalCA*100):0,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(g.ca))} €`"></span>
                         </div>
                       </template>
                     </div>
@@ -376,6 +378,25 @@
                           <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
                           <span class="legend-name" x-text="g.name"></span>
                           <span class="legend-value" x-text="`${fmt(g.pct,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(10000*g.pct/100))} m²`"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Récolte par catégorie -->
+                <div class="chart-card">
+                  <div class="chart-card-title">Récolte par catégorie</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.groups.map(g=>({label:g.name,value:g.yieldKg})), computed.totalYield, computed.groups.map(g=>GROUP_COLORS[g.name]||'#888'), `${fmt(Math.round(computed.totalYield))} kg`, '/ hectare')"></div>
+                    <div class="donut-legend">
+                      <template x-for="g of legendGroupsByYield">
+                        <div class="legend-item" x-show="g.yieldKg>0">
+                          <span class="legend-dot" :style="`background:${GROUP_COLORS[g.name]||'#888'}`"></span>
+                          <span class="legend-name" x-text="g.name"></span>
+                          <span class="legend-value" x-text="`${fmt(computed.totalYield>0?(g.yieldKg/computed.totalYield*100):0,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(g.yieldKg))} kg`"></span>
                         </div>
                       </template>
                     </div>
@@ -393,6 +414,7 @@
                           <span class="legend-dot" :style="`background:${r._color}`"></span>
                           <span class="legend-name" x-text="r.Variete"></span>
                           <span class="legend-value" x-text="`${fmt(computed.totalCA>0?(r.ca/computed.totalCA*100):0,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(r.ca))} €`"></span>
                         </div>
                       </template>
                     </div>
@@ -410,6 +432,25 @@
                           <span class="legend-dot" :style="`background:${r._color}`"></span>
                           <span class="legend-name" x-text="r.Variete"></span>
                           <span class="legend-value" x-text="`${fmt(r.pct,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(10000*r.pct/100))} m²`"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Récolte par variété -->
+                <div class="chart-card">
+                  <div class="chart-card-title">Récolte par variété</div>
+                  <div class="donut-wrap">
+                    <div x-html="buildDonutSVG(computed.rows.map(r=>({label:r.Variete,value:r.yieldKg})), computed.totalYield, computed.rows.map((_,i)=>COLORS[i%COLORS.length]), `${fmt(Math.round(computed.totalYield))} kg`, '/ hectare')"></div>
+                    <div class="donut-legend">
+                      <template x-for="r of legendRowsByYield">
+                        <div class="legend-item" x-show="r.yieldKg>0">
+                          <span class="legend-dot" :style="`background:${r._color}`"></span>
+                          <span class="legend-name" x-text="r.Variete"></span>
+                          <span class="legend-value" x-text="`${fmt(computed.totalYield>0?(r.yieldKg/computed.totalYield*100):0,1)}%`"></span>
+                          <span class="legend-abs" x-text="`${fmt(Math.round(r.yieldKg))} kg`"></span>
                         </div>
                       </template>
                     </div>
@@ -665,6 +706,13 @@ function simulator() {
     get legendRowsByPct() {
       const rows = this.computed.rows;
       return rows.map((r,i) => ({...r, _color: COLORS[i % COLORS.length]})).sort((a,b) => b.pct - a.pct);
+    },
+    get legendGroupsByYield() {
+      return this.computed.groups.slice().sort((a,b) => b.yieldKg - a.yieldKg);
+    },
+    get legendRowsByYield() {
+      const rows = this.computed.rows;
+      return rows.map((r,i) => ({...r, _color: COLORS[i % COLORS.length]})).sort((a,b) => b.yieldKg - a.yieldKg);
     },
 
     get sortedDetailRows() {
