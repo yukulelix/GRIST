@@ -545,18 +545,7 @@
 const COLORS = ['#6c63ff','#34d399','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#a855f7','#06b6d4','#eab308','#10b981','#e11d48','#7c3aed','#0ea5e9','#d946ef','#84cc16'];
 const CAT_PALETTE = ['#f97316','#fb923c','#ea580c','#facc15','#22c55e','#eab308','#f472b6','#14b8a6','#f59e0b','#10b981','#8b5cf6','#6366f1','#ec4899','#06b6d4','#84cc16','#e11d48'];
 
-const VIGOR_DENSITY = {
-  'Très faible': 1100, 'Faible': 830, 'Moyenne-': 625,
-  'Moyenne': 500, 'Moyenne+': 500, 'Forte': 400, 'Très forte': 200
-};
-const ESPECE_DENSITY = {
-  'Satsuma':830,'Mandarine':625,'Mandarine/Clémentine':625,'Clémentine':625,'Clementine':625,
-  'Tangor':625,'Tangelo':500,'Orange':500,'Citron':500,'Citron vert':500,'Lime':500,
-  'Bergamote':500,'Cédrat':500,'Main de Bouddha':500,'Combava':500,
-  'Yuzu':400,'Kumquat':830,'Citron caviar':830,'Microcitrus':830,
-  'Pomelo':200,'Pamplemousse':200,'Bigarade':400,'Chinotto':625,
-  'Calamondin':830,'Limequat':625,'Citrange':400,'Poncirus':400
-};
+// Densité lue depuis Grist (Densite_arbres_ha_, calculée via Envergure_m)
 const DEFAULT_DENSITY = 500;
 
 const ESPECE_GROUP = {
@@ -755,8 +744,7 @@ function simulator() {
     },
 
     getDensity(v) {
-      if (v && v.Densite_ha && v.Densite_ha > 0) return v.Densite_ha;
-      return ESPECE_DENSITY[v ? v.Espece : ''] || DEFAULT_DENSITY;
+      return (v && v.Densite_ha > 0) ? v.Densite_ha : DEFAULT_DENSITY;
     },
 
     getGroup(v) {
