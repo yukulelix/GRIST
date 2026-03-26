@@ -255,9 +255,9 @@
         <!-- Left panel -->
         <div class="panel-left">
           <div class="search-box">
-            <input type="text" class="search-input" placeholder="Rechercher une variété ou un groupe..." x-model="searchQuery">
+            <input type="text" class="search-input" placeholder="Rechercher une variété ou un groupe..." x-model="searchQuery" @focus="searchFocused=true" @blur="setTimeout(()=>searchFocused=false,200)">
           </div>
-          <div class="variety-dropdown" :class="{open:filteredVarieties.length>0}">
+          <div class="variety-dropdown" :class="{open:searchFocused && filteredVarieties.length>0}">
             <template x-for="v of filteredVarieties">
               <div class="variety-item" @click="addVariety(v.id)">
                 <div>
@@ -543,6 +543,7 @@ function simulator() {
     mix: [],
     activeScenario: 'normal',
     searchQuery: '',
+    searchFocused: false,
     loadedJardinId: null,
     saveName: '',
     mixSort: 'order',
@@ -769,12 +770,12 @@ function simulator() {
     changeParts(idx, delta) {
       const newVal = this.mix[idx].parts + delta;
       if (newVal >= 1 && newVal <= 99) {
-        this.mix[idx].parts = newVal;
+        this.mix.splice(idx, 1, { ...this.mix[idx], parts: newVal });
       }
     },
 
     setParts(idx, val) {
-      this.mix[idx].parts = Math.max(1, Math.min(99, val));
+      this.mix.splice(idx, 1, { ...this.mix[idx], parts: Math.max(1, Math.min(99, val)) });
     },
 
     setMixSort(mode) {
