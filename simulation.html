@@ -135,7 +135,10 @@
       width:36px; text-align:center; background:var(--bg); border:1px solid var(--border);
       border-left:none; border-right:none;
       color:var(--text); padding:3px 2px; font-size:13px; font-weight:600; outline:none; height:24px;
+      -moz-appearance:textfield; appearance:textfield;
     }
+    .parts-input::-webkit-outer-spin-button,
+    .parts-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     .parts-input:focus { border-color:var(--accent); }
 
     .mix-pct { font-size:11px; color:var(--green); min-width:38px; text-align:right; font-weight:500; }
@@ -188,21 +191,22 @@
     .bar-bg { height:7px; border-radius:3px; background:var(--bg); overflow:hidden; }
     .bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent-light)); }
 
-    /* ── Donut grid 2×2 ─────────────── */
-    .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
-    @media (max-width:700px) { .charts-grid { grid-template-columns:1fr; } }
+    /* ── Donut grid 3 cols ────────────── */
+    .charts-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:16px; }
+    @media (max-width:900px) { .charts-grid { grid-template-columns:1fr 1fr; } }
+    @media (max-width:550px) { .charts-grid { grid-template-columns:1fr; } }
     .chart-card {
       background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;
     }
     .chart-card-title { font-size:12px; font-weight:600; margin-bottom:10px; text-align:center; }
-    .donut-wrap { display:flex; align-items:center; gap:16px; justify-content:center; flex-wrap:wrap; }
-    .donut-svg { width:140px; height:140px; flex-shrink:0; }
-    .donut-legend { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .donut-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .donut-svg { width:130px; height:130px; flex-shrink:0; }
+    .donut-legend { display:flex; flex-direction:column; gap:3px; min-width:0; width:100%; }
     .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; }
     .legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
-    .legend-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
-    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:8px; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:38px; text-align:right; }
-    .legend-abs { color:var(--text-dim); font-size:9px; opacity:.7; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:50px; text-align:right; }
+    .legend-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
+    .legend-value { color:var(--text-dim); margin-left:auto; padding-left:6px; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:36px; text-align:right; }
+    .legend-abs { color:var(--text-dim); font-size:9px; opacity:.7; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:48px; text-align:right; }
 
     /* ── Scrollbar ────────────────────── */
     ::-webkit-scrollbar { width:5px; }
