@@ -78,7 +78,7 @@
     .search-input::placeholder { color:#555a6e; }
 
     /* ── Dropdown ────────────────────── */
-    .variety-dropdown { max-height:200px; overflow-y:auto; border-bottom:1px solid var(--border); display:none; }
+    .variety-dropdown { max-height:260px; overflow-y:auto; border-bottom:1px solid var(--border); display:none; }
     .variety-dropdown.open { display:block; }
     .variety-item {
       display:flex; align-items:center; justify-content:space-between;
@@ -562,12 +562,17 @@ function simulator() {
     },
 
     get filteredVarieties() {
-      const q = this.searchQuery.toLowerCase();
-      if (q.length < 2) return [];
+      const q = this.searchQuery.toLowerCase().trim();
       const inMix = new Set(this.mix.map(m => m.id));
-      return this.varieties.filter(v => !inMix.has(v.id) &&
-        (v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || this.getGroup(v).toLowerCase().includes(q))
-      ).slice(0, 25);
+      let results = this.varieties.filter(v => !inMix.has(v.id));
+      if (q.length >= 1) {
+        results = results.filter(v =>
+          v.Variete.toLowerCase().includes(q) || v.Espece.toLowerCase().includes(q) || this.getGroup(v).toLowerCase().includes(q)
+        );
+      }
+      // Tri par rentabilité/ha décroissante
+      results.sort((a, b) => (this.getRentaHa(b) || 0) - (this.getRentaHa(a) || 0));
+      return results.slice(0, 30);
     },
 
     get computed() {
@@ -910,19 +915,15 @@ function simulator() {
         for (let i = 0; i < n; i++) {
           if (mixData.Jardins_id[i] === jardin?.id) {
             const vid = mixData.Varietes_id[i];
-            const nb = mixData.Nb_arbres[i] || 0;
+            const parts = mixData.Parts[i] || 1;
             const v = this.varieties.find(x => x.id === vid);
             if (v) {
-              newMix.push({ id: vid, _nb: nb });
+              newMix.push({ id: vid, parts });
             }
           }
         }
         if (newMix.length > 0) {
-          const minNb = Math.min(...newMix.map(m => m._nb).filter(n => n > 0)) || 1;
-          this.mix = newMix.map(m => ({
-            id: m.id,
-            parts: Math.max(1, Math.round(m._nb / minNb))
-          }));
+          this.mix = newMix;
           this.saveName = jardin ? jardin.Title : '';
         }
       } catch (e) { console.error('Load error:', e); }
@@ -962,21 +963,14 @@ function simulator() {
           jardinId = ids[0];
         }
 
-        const totalParts = this.totalParts;
-        const mixRows = this.mix.map((m, i) => {
-          const v = this.varieties.find(x => x.id === m.id);
-          const d = this.getDensity(v);
-          const pct = totalParts > 0 ? (m.parts / totalParts * 100) : 0;
-          const nb = Math.round(d * pct / 100);
-          return {
-            fields: {
-              Title: name + '-' + (i + 1),
-              Nb_arbres: nb,
-              Jardins_id: jardinId,
-              Varietes_id: m.id
-            }
-          };
-        });
+        const mixRows = this.mix.map((m, i) => ({
+          fields: {
+            Title: name + '-' + (i + 1),
+            Parts: m.parts,
+            Jardins_id: jardinId,
+            Varietes_id: m.id
+          }
+        }));
         await tMix.create(mixRows);
 
         await this.loadJardins();
