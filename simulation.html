@@ -213,6 +213,52 @@
     ::-webkit-scrollbar-track { background:transparent; }
     ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
+    /* ── View Tabs ────────────────────── */
+    .view-tabs-bar {
+      display:flex; gap:2px; padding:8px 20px; border-bottom:1px solid var(--border);
+      background:var(--surface); flex-shrink:0;
+    }
+    .view-tab {
+      padding:6px 16px; border-radius:6px; border:1px solid transparent;
+      font-size:12px; font-weight:500; color:var(--text-dim); background:transparent;
+      cursor:pointer; transition:all .2s;
+    }
+    .view-tab:hover { color:var(--text); background:var(--surface2); }
+    .view-tab.active { color:#fff; background:var(--accent); border-color:var(--accent); }
+
+    /* ── Bar Charts ──────────────────── */
+    .analyse-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:800px) { .analyse-grid { grid-template-columns:1fr; } }
+    .analyse-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px;
+    }
+    .analyse-card-title { font-size:13px; font-weight:600; margin-bottom:4px; }
+    .analyse-card-legend { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    .analyse-legend-item { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-dim); }
+    .analyse-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+    .bar-chart { display:flex; align-items:flex-end; gap:8px; height:200px; padding-bottom:24px; }
+    .bar-chart-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; }
+    .bar-chart-bar-area { flex:1; width:100%; display:flex; align-items:flex-end; justify-content:center; }
+    .bar-chart-bar { width:70%; max-width:50px; border-radius:4px 4px 0 0; transition:height .5s ease; min-height:2px; }
+    .bar-chart-val { font-size:9px; color:var(--text-dim); font-weight:600; white-space:nowrap; }
+    .bar-chart-label { font-size:9px; color:var(--text-dim); text-align:center; white-space:nowrap; }
+    .stacked-chart { display:flex; align-items:flex-end; gap:16px; height:240px; padding-bottom:24px; }
+    .stacked-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; }
+    .stacked-bar-area { flex:1; width:100%; display:flex; flex-direction:column-reverse; align-items:center; }
+    .stacked-segment { width:80%; max-width:80px; transition:height .5s ease; }
+    .stacked-segment:last-child { border-radius:4px 4px 0 0; }
+    .stacked-label { font-size:10px; color:var(--text-dim); text-align:center; }
+    .stacked-total { font-size:10px; color:var(--text); font-weight:600; }
+    .analyse-note { font-size:11px; color:var(--text-dim); padding:16px; line-height:1.6; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-top:16px; }
+    .analyse-note strong { color:var(--green); }
+    .analyse-kpi-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    .analyse-kpi { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 16px; flex:1; min-width:120px; }
+    .analyse-kpi-label { font-size:10px; text-transform:uppercase; color:var(--text-dim); letter-spacing:.5px; margin-bottom:4px; }
+    .analyse-kpi-value { font-size:20px; font-weight:700; }
+    .analyse-kpi-value.positive { color:var(--green); }
+    .analyse-kpi-value.negative { color:var(--red); }
+    .analyse-kpi-sub { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
     /* ── Loading ──────────────────────── */
     .loading { display:flex; align-items:center; justify-content:center; padding:60px 20px; flex-direction:column; gap:12px; }
     .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
@@ -239,6 +285,7 @@
           </template>
         </div>
         <span class="coeff-info" x-text="`Rdt ${(scenario.Coeff_rendement*100).toFixed(0)}% · Prix ${(scenario.Coeff_prix*100).toFixed(0)}%`"></span>
+        <button class="scenario-tab" style="margin-left:8px;border:1px solid var(--border);font-size:11px;" @click="if(confirm('Réinitialiser tous les paramètres ?')) resetParametres()" title="Réinitialiser les paramètres">🔄 Reset</button>
       </div>
 
       <!-- Save/Load bar -->
@@ -323,6 +370,11 @@
 
         <!-- Right panel -->
         <div class="panel-right">
+          <div class="view-tabs-bar">
+            <button class="view-tab" :class="{active:rightView==='mix'}" @click="rightView='mix'">📊 Résultats mix</button>
+            <button class="view-tab" :class="{active:rightView==='analyse'}" @click="rightView='analyse'">📈 Analyse globale</button>
+          </div>
+          <div x-show="rightView==='mix'" style="overflow-y:auto;flex:1">
           <template x-if="mix.length===0">
             <div class="empty-state" style="flex:1"><div class="icon">📊</div><p>Composez votre mix variétal pour voir les résultats</p></div>
           </template>
@@ -535,6 +587,113 @@
               </div>
             </div>
           </template>
+          </div><!-- /x-show mix -->
+
+          <!-- Analyse view -->
+          <div x-show="rightView==='analyse'" style="overflow-y:auto;flex:1;padding:20px">
+            <template x-if="analyseData">
+              <div>
+                <!-- KPI row -->
+                <div class="analyse-kpi-row">
+                  <div class="analyse-kpi">
+                    <div class="analyse-kpi-label">CA total</div>
+                    <div class="analyse-kpi-value" x-text="fmtEur(analyseData.totalCA)"></div>
+                    <div class="analyse-kpi-sub" x-text="`${analyseData.nb} arbres × ${analyseData.rendement} kg × mix prix`"></div>
+                  </div>
+                  <div class="analyse-kpi">
+                    <div class="analyse-kpi-label">Charges + saisonniers</div>
+                    <div class="analyse-kpi-value" x-text="fmtEur(analyseData.charges + analyseData.cout_saison)"></div>
+                    <div class="analyse-kpi-sub" x-text="`dont ${fmtEur(analyseData.cout_saison)} saisonniers`"></div>
+                  </div>
+                  <div class="analyse-kpi">
+                    <div class="analyse-kpi-label">Revenu disponible</div>
+                    <div class="analyse-kpi-value" :class="analyseData.revenuExploit>=0?'positive':'negative'" x-text="fmtEur(analyseData.revenuExploit)"></div>
+                    <div class="analyse-kpi-sub" x-text="`pour 2 exploitants`"></div>
+                  </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="analyse-grid">
+                  <!-- CA vs charges -->
+                  <div class="analyse-card">
+                    <div class="analyse-card-title">CA vs charges</div>
+                    <div class="analyse-card-legend">
+                      <template x-for="bar of caVsChargesBars">
+                        <div class="analyse-legend-item">
+                          <span class="analyse-legend-dot" :style="`background:${bar.color}`"></span>
+                          <span x-text="bar.name"></span>
+                        </div>
+                      </template>
+                    </div>
+                    <div class="bar-chart">
+                      <template x-for="bar of caVsChargesBars">
+                        <div class="bar-chart-col">
+                          <div class="bar-chart-val" x-text="bar.label_val"></div>
+                          <div class="bar-chart-bar-area">
+                            <div class="bar-chart-bar" :style="`height:${bar.pct}%;background:${bar.color}`"></div>
+                          </div>
+                          <div class="bar-chart-label" x-text="bar.name"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- Travail h/an -->
+                  <div class="analyse-card">
+                    <div class="analyse-card-title">Travail (h/an)</div>
+                    <div class="analyse-card-legend">
+                      <div class="analyse-legend-item"><span class="analyse-legend-dot" style="background:#065f46"></span>Soins</div>
+                      <div class="analyse-legend-item"><span class="analyse-legend-dot" style="background:#34d399"></span>Sol+irrig</div>
+                      <div class="analyse-legend-item"><span class="analyse-legend-dot" style="background:#f59e0b"></span>Récolte</div>
+                      <div class="analyse-legend-item"><span class="analyse-legend-dot" style="background:#f472b6"></span>Transfo</div>
+                      <div class="analyse-legend-item"><span class="analyse-legend-dot" style="background:#60a5fa"></span>Comm</div>
+                    </div>
+                    <div class="stacked-chart">
+                      <template x-for="col of travailStacked">
+                        <div class="stacked-col">
+                          <div class="stacked-total" x-text="`${Math.round(col.total)} h`"></div>
+                          <div class="stacked-bar-area">
+                            <template x-for="seg of col.segments">
+                              <div class="stacked-segment" :style="`height:${seg.pct}%;background:${seg.color}`" :title="`${seg.name}: ${Math.round(seg.value)}h`"></div>
+                            </template>
+                          </div>
+                          <div class="stacked-label" x-text="col.name"></div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Notes -->
+                <div class="analyse-note">
+                  <p><strong x-text="analyseData.revenuLabel"></strong></p>
+                  <p x-text="`Saisonniers : ${Math.round(analyseData.h_saison_total)} h = ~${Math.round(analyseData.h_saison_total/35)} semaines à 35h.`"></p>
+                  <p x-text="`Non délégable (soins+commercial) : ${analyseData.h_non_delegable_sem.toFixed(1)} h/sem/exploitant = ${Math.round(analyseData.h_non_delegable_pct)}% du temps.`"></p>
+                </div>
+
+                <!-- Paramètres éditables -->
+                <div style="margin-top:20px">
+                  <template x-for="cat of paramCategories" :key="cat">
+                    <div style="margin-bottom:16px">
+                      <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)" x-text="cat"></div>
+                      <template x-for="p of parametres.filter(x=>x.categorie===cat)" :key="p.id">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px">
+                          <span style="min-width:180px;color:var(--text-dim)" x-text="p.parametre" :title="p.description"></span>
+                          <input type="range" :min="p.min" :max="p.max" :step="p.pas" :value="p.valeur"
+                            @input="p.valeur=parseFloat($event.target.value)" @change="updateParam(p)"
+                            style="flex:1;accent-color:var(--accent);height:4px;cursor:pointer">
+                          <span style="min-width:60px;text-align:right;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums" x-text="`${p.valeur} ${p.unite}`"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+            <template x-if="!analyseData">
+              <div class="empty-state" style="flex:1"><div class="icon">📈</div><p>Chargement des paramètres...</p></div>
+            </template>
+          </div>
         </div>
       </div>
     </div>
@@ -585,6 +744,9 @@ function simulator() {
     GROUP_COLORS: {},
     GROUP_ORDER: [],
     COLORS: COLORS,
+    rightView: 'analyse',
+    parametres: [],
+    parametresDefaults: [],
 
     // Computed properties
     get totalParts() {
@@ -706,6 +868,129 @@ function simulator() {
     get legendRowsByYield() {
       const rows = this.computed.rows;
       return rows.map((r,i) => ({...r, _color: COLORS[i % COLORS.length]})).sort((a,b) => b.yieldKg - a.yieldKg);
+    },
+
+    get analyseData() {
+      if (!this.parametres || this.parametres.length === 0) return null;
+      const pMap = {};
+      this.parametres.forEach(r => { pMap[r.parametre] = r.valeur; });
+
+      const nb = pMap["Nombre d'arbres"] || 100;
+      const rendement = pMap["Rendement"] || 20;
+      const production = nb * rendement;
+      const prixFrais = pMap["Prix frais moyen"] || 18;
+      const partTransfo = (pMap["Part transformée"] || 30) / 100;
+      const multTransfo = pMap["Multiplicateur transfo"] || 2.5;
+      const caExtra = pMap["CA pépinière + events"] || 0;
+
+      const caFrais = production * (1 - partTransfo) * prixFrais;
+      const caTransfo = production * partTransfo * prixFrais * multTransfo;
+      const totalCA = caFrais + caTransfo + caExtra;
+
+      const charges = (pMap["Charges fixes"] || 0) + (pMap["Annuités emprunts"] || 0)
+                    + (pMap["MSA + cotisations"] || 0) + (pMap["Intrants + énergie"] || 0);
+
+      const semaines = 46;
+      const h_taille = (pMap["Taille douce"] || 0) * nb;
+      const h_observation = (pMap["Observation / monitoring"] || 0) * nb;
+      const h_phyto = (pMap["Traitements phyto plantes"] || 0) * nb;
+      const h_sol = (pMap["Sol, mulch, compost"] || 0) * nb;
+      const h_irrigation = (pMap["Irrigation / fertigation"] || 0) * nb;
+      const h_entretien = (pMap["Entretien serre / infra"] || 0) * nb;
+      const h_recolte_total = (pMap["Récolte (multi-passes)"] || 0) * nb;
+      const h_tri_total = (pMap["Tri, conditionnement"] || 0) * nb;
+      const kg_transfo = production * partTransfo;
+      const h_transfo_total = (pMap["Transformation"] || 0) * kg_transfo;
+      const h_commercial = (pMap["Commercial / livraisons"] || 0) * semaines;
+      const h_admin = (pMap["Admin, compta, formation"] || 0) * semaines;
+
+      const pct_recolte_del = (pMap["% récolte délégué"] || 0) / 100;
+      const pct_tri_del = (pMap["% tri délégué"] || 0) / 100;
+      const pct_transfo_del = (pMap["% transfo délégué"] || 0) / 100;
+      const cout_h = pMap["Coût horaire chargé"] || 16;
+
+      const h_s_recolte = h_recolte_total * pct_recolte_del;
+      const h_s_tri = h_tri_total * pct_tri_del;
+      const h_s_transfo = h_transfo_total * pct_transfo_del;
+      const h_saison_total = h_s_recolte + h_s_tri + h_s_transfo;
+      const cout_saison = h_saison_total * cout_h;
+
+      const h_e_soins = h_taille + h_observation + h_phyto;
+      const h_e_sol_irrig = h_sol + h_irrigation + h_entretien;
+      const h_e_recolte = h_recolte_total * (1 - pct_recolte_del) + h_tri_total * (1 - pct_tri_del);
+      const h_e_transfo = h_transfo_total * (1 - pct_transfo_del);
+      const h_e_commercial = h_commercial + h_admin;
+      const h_exploit_total = h_e_soins + h_e_sol_irrig + h_e_recolte + h_e_transfo + h_e_commercial;
+
+      const WORK_COLORS = ['#065f46','#34d399','#f59e0b','#f472b6','#60a5fa'];
+      const catNames = ['Soins arbre','Sol+irrig+infra','Récolte+tri','Transformation','Commercial+admin'];
+      const makeSegs = (vals) => vals.map((v,i) => ({value:v, color:WORK_COLORS[i], name:catNames[i]}));
+
+      const exploit1 = makeSegs([h_e_soins/2, h_e_sol_irrig/2, h_e_recolte/2, h_e_transfo/2, h_e_commercial/2]);
+      const exploit2 = makeSegs([h_e_soins/2, h_e_sol_irrig/2, h_e_recolte/2, h_e_transfo/2, h_e_commercial/2]);
+      const saisonniers_segs = makeSegs([0, 0, h_s_recolte + h_s_tri, h_s_transfo, 0]);
+
+      const revenuExploit = totalCA - charges - cout_saison;
+      const smic15 = 21203 * 1.5;
+
+      return {
+        caFrais, caTransfo, caExtra, totalCA, charges, cout_saison,
+        exploit1, exploit2, saisonniers: saisonniers_segs,
+        h_saison_total, h_exploit_total,
+        h_non_delegable_sem: (h_e_soins + h_e_commercial) / 2 / semaines,
+        h_exploit_sem: h_exploit_total / 2 / semaines,
+        h_non_delegable_pct: h_exploit_total > 0 ? Math.round((h_e_soins + h_e_commercial) / h_exploit_total * 100) : 0,
+        revenuExploit,
+        revenuLabel: revenuExploit > smic15 ? 'Revenu > 1,5 SMIC. Zone de confort.'
+                   : revenuExploit > 21203 ? 'Revenu > 1 SMIC. Correct.'
+                   : 'Revenu < 1 SMIC. Attention.',
+        nb, rendement, production
+      };
+    },
+
+    get caVsChargesBars() {
+      const d = this.analyseData;
+      if (!d) return [];
+      const bars = [
+        {name:'CA frais', value:d.caFrais, color:'#34d399'},
+        {name:'CA transfo', value:d.caTransfo, color:'#f472b6'},
+      ];
+      if (d.caExtra > 0) bars.push({name:'CA extra', value:d.caExtra, color:'#60a5fa'});
+      bars.push({name:'Charges', value:d.charges, color:'#ef4444'});
+      if (d.cout_saison > 0) bars.push({name:'Saisonniers', value:d.cout_saison, color:'#f59e0b'});
+      const maxVal = Math.max(...bars.map(b=>b.value), 1);
+      return bars.map(b => ({
+        ...b,
+        pct: (b.value / maxVal * 100),
+        label_val: b.value >= 1000 ? Math.round(b.value/1000)+'k' : Math.round(b.value)+'€'
+      }));
+    },
+
+    get travailStacked() {
+      const d = this.analyseData;
+      if (!d) return [];
+      const columns = [
+        {name:'Exploitant 1', segments:d.exploit1},
+        {name:'Exploitant 2', segments:d.exploit2},
+        {name:'Saisonniers', segments:d.saisonniers}
+      ];
+      const maxTotal = Math.max(...columns.map(c => c.segments.reduce((s,seg)=>s+seg.value,0)), 1);
+      return columns.map(c => {
+        const total = c.segments.reduce((s,seg)=>s+seg.value,0);
+        return {
+          name:c.name, total,
+          segments:c.segments.map(seg => ({
+            ...seg,
+            pct: maxTotal > 0 ? (seg.value/maxTotal*100) : 0
+          })).filter(seg => seg.value > 0)
+        };
+      });
+    },
+
+    get paramCategories() {
+      const seen = [];
+      this.parametres.forEach(p => { if (!seen.includes(p.categorie)) seen.push(p.categorie); });
+      return seen;
     },
 
     get sortedDetailRows() {
@@ -835,11 +1120,12 @@ function simulator() {
     async init() {
       try {
         grist.ready({ requiredAccess: 'full' });
-        grist.onRecords(() => this.loadFromGrist());
+        grist.onRecords(() => { this.loadFromGrist(); this.loadParametres(); });
         await this.loadFromGrist();
       } catch (e) {
         this.loadStandalone();
       }
+      await this.loadParametres();
     },
 
     async loadFromGrist() {
@@ -943,6 +1229,49 @@ function simulator() {
       this.GROUP_COLORS = {};
       standaloneGroups.forEach((g, i) => { this.GROUP_COLORS[g] = CAT_PALETTE[i % CAT_PALETTE.length]; });
       this.loaded = true;
+    },
+
+    async loadParametres() {
+      try {
+        const parData = await grist.docApi.fetchTable('Parametres');
+        const params = [];
+        for (let i = 0; i < parData.id.length; i++) {
+          params.push({
+            id: parData.id[i],
+            categorie: parData.categorie[i],
+            parametre: parData.parametre[i],
+            valeur: parData.valeur[i],
+            unite: parData.unite[i],
+            min: parData.min[i],
+            max: parData.max[i],
+            pas: parData.pas[i],
+            description: parData.description[i]
+          });
+        }
+        this.parametres = params;
+        if (this.parametresDefaults.length === 0) {
+          this.parametresDefaults = params.map(p => ({id: p.id, valeur: p.valeur}));
+        }
+      } catch(e) { console.log('No Parametres table:', e); }
+    },
+
+    async updateParam(param) {
+      try {
+        const tParams = grist.getTable('Parametres');
+        await tParams.update([{id: param.id, fields: {valeur: param.valeur}}]);
+      } catch(e) { console.error('Update param error:', e); }
+    },
+
+    async resetParametres() {
+      if (!this.parametresDefaults.length) return;
+      try {
+        const tParams = grist.getTable('Parametres');
+        for (const def of this.parametresDefaults) {
+          const p = this.parametres.find(x => x.id === def.id);
+          if (p) p.valeur = def.valeur;
+          await tParams.update([{id: def.id, fields: {valeur: def.valeur}}]);
+        }
+      } catch(e) { console.error('Reset error:', e); }
     },
 
     async loadSimulation() {
