@@ -9,6 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#232733;--border:#2e3344;--text:#e4e6ed;--text-dim:#8b8fa3;--accent:#6c63ff;--accent-light:#8b83ff;--green:#34d399;--green-dim:#059669;--orange:#f59e0b;--red:#ef4444;--gold:#fbbf24;--teal:#14b8a6;--pink:#ec4899;--blue:#3b82f6}
+    [x-cloak]{display:none!important}
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
     .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
@@ -57,8 +58,8 @@
 </head>
 <body>
 <div class="app" x-data="D()" x-init="init()">
-  <template x-if="!ok"><div class="ld"><div class="sp"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div></template>
-  <template x-if="ok"><div style="display:flex;flex-direction:column;height:100vh">
+  <div x-show="!ok" class="ld"><div class="sp"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div>
+  <div x-show="ok" x-cloak style="display:flex;flex-direction:column;height:100vh">
     <div class="header"><span style="font-size:20px">&#127819;</span><h1>Dimensionnement verger<span class="sub">&#183; 2 exploitants + saisonniers</span></h1></div>
     <div class="main">
       <div class="panel-left">
@@ -105,7 +106,7 @@
         <div class="vb" x-html="R.vd"></div>
       </div>
     </div>
-  </div></template>
+  </div>
 </div>
 <script>
 var SMIC=17116;
@@ -207,14 +208,14 @@ function D(){return{
     R.vd=L.join(' &#183; ');
   },
   ic:function(){
-    var self=this;this.$nextTick(function(){
-      var e1=document.getElementById('c1'),e2=document.getElementById('c2');if(!e1||!e2)return;
+    var self=this;setTimeout(function(){
+      var e1=document.getElementById('c1'),e2=document.getElementById('c2');if(!e1||!e2){console.warn('Canvas not found, retrying...');setTimeout(function(){self.ic()},200);return;}
       var ax={grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b8fa3',font:{size:10}}};
       var axX={grid:{display:false},ticks:{color:'#8b8fa3',font:{size:9}}};
       self.c1=new Chart(e1,{type:'bar',data:{labels:['CA frais','CA transfo','Charges fixes','Saisonniers'],datasets:[{data:[0,0,0,0],backgroundColor:['#34d399','#ec4899','#ef4444','#f59e0b'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return Math.round(c.raw).toLocaleString('fr-FR')+' \u20ac'}}}},scales:{x:axX,y:Object.assign({},ax,{ticks:{color:'#8b8fa3',font:{size:10},callback:function(v){return Math.round(v/1000)+'k'}}})}}});
       self.c2=new Chart(e2,{type:'bar',data:{labels:['Exploit. 1','Exploit. 2','Saisonniers'],datasets:[{label:'Soins',data:[0,0,0],backgroundColor:'#34d399',borderRadius:4},{label:'Sol+irrig',data:[0,0,0],backgroundColor:'#14b8a6',borderRadius:4},{label:'R\u00e9colte',data:[0,0,0],backgroundColor:'#f59e0b',borderRadius:4},{label:'Transfo',data:[0,0,0],backgroundColor:'#ec4899',borderRadius:4},{label:'Comm',data:[0,0,0],backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+Math.round(c.raw)+' h/an ('+Math.round(c.raw/46)+' h/sem)'}}}},scales:{x:Object.assign({stacked:true},axX),y:Object.assign({stacked:true},ax,{title:{display:true,text:'h/an',color:'#8b8fa3',font:{size:10}}})}}});
       self.go();
-    });
+    },50);
   }
 }}
 </script>
