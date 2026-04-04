@@ -84,7 +84,7 @@
           <div class="kpi"><div class="kl">Charges (sais. inclus)</div><div class="kv" x-text="fe(R.ch)"></div><div class="ks" x-text="'dont sais. '+fe(R.cs)"></div></div>
           <div class="kpi"><div class="kl">Prix moyen pond&#233;r&#233;</div><div class="kv"><span x-text="R.pm.toFixed(1)"></span><span class="u">&#8364;/kg</span></div><div class="ks">frais + transfo</div></div>
           <div class="kpi"><div class="kl">Productivit&#233;</div><div class="kv"><span x-text="Math.round(R.cm)"></span><span class="u">&#8364;/m&#178;</span></div><div class="ks" x-text="fe(Math.round(R.ca/Math.max(p.trees,1)))+'/arbre'"></div></div>
-          <div class="kpi"><div class="kl">Charge / arbre</div><div class="kv"><span x-text="R.ha.toFixed(1)"></span><span class="u">h/an</span></div><div class="ks">production seule</div></div>
+          <div class="kpi"><div class="kl">Saisonniers pic</div><div class="kv"><span x-text="R.nbSais"></span><span class="u">pers.</span></div><div class="ks" x-text="R.nbSais>0?'pic en '+R.peakMonth+' ('+R.saisSem+' sem total)':'aucun'"></div></div>
         </div>
         <div class="kpi-grid">
           <div class="kpi"><div class="kl">Terrain total</div><div class="kv"><span x-text="f(R.sfTotal)"></span><span class="u">m&#178;</span></div><div class="ks" x-text="R.sfPlein>0?f(R.sfPlein)+' m\u00b2 plein champ + '+f(R.sfSerre)+' m\u00b2 serre':'100% sous serre'"></div></div>
@@ -113,8 +113,8 @@ var NK={"Nombre d'arbres":'trees',"Densit\u00e9":'density',"Rendement":'yield',"
 
 function D(){return{
   ok:false,gOk:false,pR:[],c1:null,c2:null,
-  p:{trees:100,density:10,yield:20,pctserre:100,price:18,transfo:30,mult:2.5,extra:0,fixed:18000,loan:25000,msa:12000,inputs:6000,taille:0.8,obs:2,sol:0.6,phyto:0.3,irrig:0.4,recolte:1.2,tri:0.5,infra:0.4,comm:12,admin:6,htransfo:0.3,delrec:50,deltri:60,deltransfo:30,costsais:16},
-  R:{ca:0,prod:0,sf:0,rev:0,rs:0,hs:0,ha:0,ch:0,cs:0,pm:0,cm:0,rc:'',hc:'',vd:'',sfTotal:0,sfPlein:0,treesPlein:0,jRecolte:0,jTri:0,jTransfo:0,chFix:0},
+  p:{trees:100,density:10,yield:20,pctserre:100,price:18,transfo:30,mult:2.5,extra:0,fixed:18000,loan:25000,msa:12000,inputs:6000,taille:0.8,obs:0,sol:0.6,phyto:0.3,irrig:0.4,recolte:1.2,tri:0.5,infra:0.4,comm:12,admin:6,htransfo:0.3,delrec:50,deltri:60,deltransfo:30,costsais:16},
+  R:{ca:0,prod:0,sf:0,rev:0,rs:0,hs:0,ha:0,ch:0,cs:0,pm:0,cm:0,rc:'',hc:'',vd:'',sfTotal:0,sfPlein:0,treesPlein:0,jRecolte:0,jTri:0,jTransfo:0,chFix:0,nbSais:0,peakMonth:'',peakSaisH:0,saisSem:0},
   sections:[
     {title:'Structure du verger',items:[
       {key:'trees',label:"Nombre d'arbres",unit:'arbres',min:80,max:1000,step:10},
@@ -133,7 +133,6 @@ function D(){return{
       {key:'inputs',label:'Intrants + \u00e9nergie + emballages',unit:'\u20ac/an',min:2000,max:20000,step:500}]},
     {title:'Travail exploitant <span class="tag tag-b">non d\u00e9l\u00e9gable</span>',items:[
       {key:'taille',label:'Taille douce',unit:'h/arbre/an',min:0.3,max:2,step:0.1},
-      {key:'obs',label:'Observation / monitoring phyto',unit:'h/arbre/an',min:0.5,max:4,step:0.1},
       {key:'sol',label:'Sol, mulch, compost',unit:'h/arbre/an',min:0.2,max:2,step:0.1},
       {key:'phyto',label:'Traitements plantes (d\u00e9coctions)',unit:'h/arbre/an',min:0.1,max:1,step:0.05},
       {key:'irrig',label:'Irrigation / fertigation',unit:'h/arbre/an',min:0.1,max:1.5,step:0.1}]},
@@ -180,6 +179,9 @@ function D(){return{
     var hC=p.comm*46,hA=p.admin*46;
     var dR=p.delrec/100,dT=p.deltri/100,dF=p.deltransfo/100;
     var sH=hR*dR+hTr*dT+hTf*dF;R.cs=sH*p.costsais;
+    var HM=[.05,.10,.15,.20,.20,.15,.10,.05],MN=['Oct','Nov','D\u00e9c','Jan','F\u00e9v','Mar','Avr','Mai'];
+    var pkH=0,pkI=0;HM.forEach(function(pct,i){var mh=(hR*dR+hTr*dT+hTf*dF)*pct;if(mh>pkH){pkH=mh;pkI=i}});
+    R.peakSaisH=pkH;R.peakMonth=MN[pkI];R.nbSais=sH>0?Math.ceil(pkH/(35*4.33)):0;R.saisSem=sH>0?Math.ceil(sH/35):0;
     var eT=(hT+hO+hP+hS+hI+hN)+hR*(1-dR)+hTr*(1-dT)+hTf*(1-dF)+hC+hA;
     var pE=eT/2;R.hs=pE/46;R.ha=(hT+hO+hP+hS+hI+hN+hR+hTr)/Math.max(p.trees,1);
     R.jRecolte=hR/7;R.jTri=hTr/7;R.jTransfo=hTf/7;
@@ -199,7 +201,7 @@ function D(){return{
     else L.push('<span class="cg">Revenu > 1,5 SMIC. OK.</span>');
     if(R.hs>48)L.push('<span class="cr">Surcharge '+Math.round(R.hs)+' h/sem.</span>');
     if(R.sfSerre>4000)L.push('Serre > 4 000 m\u00b2 : investissement lourd.');
-    if(sH>0)L.push('Saisonniers : '+this.f(sH)+' h = ~'+Math.ceil(sH/35)+' sem, '+this.fe(R.cs)+'.');
+    if(sH>0)L.push('Saisonniers : '+this.f(sH)+' h = ~'+R.saisSem+' sem, '+this.fe(R.cs)+'. Pic '+R.peakMonth+' : '+R.nbSais+' pers. (r\u00e9colte oct-mai, mod\u00e8le agrumes mixtes).');
     var nd=((hT+hO+hP)/2+(hC+hA)/2)/46;
     L.push('Non d\u00e9l\u00e9gable : '+nd.toFixed(1)+' h/sem/expl ('+Math.round(nd*46*100/Math.max(pE,1))+'%).');
     R.vd=L.join(' &#183; ');
