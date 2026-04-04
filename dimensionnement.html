@@ -67,7 +67,7 @@
           <template x-for="s in sec.items"><div class="sl">
             <span class="sl-l" x-text="s.label"></span>
             <span class="sl-u" x-text="s.unit"></span>
-            <input type="range" :min="s.min" :max="s.max" :step="s.step" x-model.number="p[s.key]" @input="go()">
+            <input type="range" :min="s.min" :max="s.max" :step="s.step" x-model.number="p[s.key]" @input="go()" @change="sy(s.key)">
             <span class="sl-v" x-text="fv(p[s.key],s.step)"></span>
           </div></template>
         </div></template>
@@ -78,7 +78,7 @@
           <div class="kpi k1"><div class="kl">CA total</div><div class="kv" x-text="fe(R.ca)"></div><div class="ks" x-text="f(R.prod)+' kg'"></div></div>
           <div class="kpi k2"><div class="kl">Revenu / exploitant</div><div class="kv" :class="R.rc" x-text="fe(R.rev)"></div><div class="ks" x-text="R.rs.toFixed(1)+'&times; SMIC'"></div></div>
           <div class="kpi k3"><div class="kl">Heures / exploitant</div><div class="kv" :class="R.hc"><span x-text="Math.round(R.hs)"></span><span class="u">h/sem</span></div><div class="ks">46 semaines/an</div></div>
-          <div class="kpi k4"><div class="kl">Serre Venlo</div><div class="kv"><span x-text="f(R.sf)"></span><span class="u">m&#178;</span></div><div class="ks" x-text="f(p.trees)+' arbres'"></div></div>
+          <div class="kpi k4"><div class="kl">Serre Venlo</div><div class="kv"><span x-text="f(R.sfSerre)"></span><span class="u">m&#178;</span></div><div class="ks" x-text="f(R.tresSerre)+' arbres sous serre'"></div></div>
         </div>
         <div class="kpi-grid">
           <div class="kpi"><div class="kl">Charges (sais. inclus)</div><div class="kv" x-text="fe(R.ch)"></div><div class="ks" x-text="'dont sais. '+fe(R.cs)"></div></div>
@@ -86,9 +86,15 @@
           <div class="kpi"><div class="kl">Productivit&#233;</div><div class="kv"><span x-text="Math.round(R.cm)"></span><span class="u">&#8364;/m&#178;</span></div><div class="ks" x-text="fe(Math.round(R.ca/Math.max(p.trees,1)))+'/arbre'"></div></div>
           <div class="kpi"><div class="kl">Charge / arbre</div><div class="kv"><span x-text="R.ha.toFixed(1)"></span><span class="u">h/an</span></div><div class="ks">production seule</div></div>
         </div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kl">Terrain total</div><div class="kv"><span x-text="f(R.sfTotal)"></span><span class="u">m&#178;</span></div><div class="ks" x-text="R.sfPlein>0?f(R.sfPlein)+' m\u00b2 plein champ + '+f(R.sfSerre)+' m\u00b2 serre':'100% sous serre'"></div></div>
+          <div class="kpi"><div class="kl">Jours r&#233;colte</div><div class="kv"><span x-text="Math.round(R.jRecolte)"></span><span class="u">j/an</span></div><div class="ks" x-text="f(Math.round(R.jRecolte*7))+' h total (7h/j)'"></div></div>
+          <div class="kpi"><div class="kl">Jours tri</div><div class="kv"><span x-text="Math.round(R.jTri)"></span><span class="u">j/an</span></div><div class="ks" x-text="f(Math.round(R.jTri*7))+' h total'"></div></div>
+          <div class="kpi"><div class="kl">Jours transfo</div><div class="kv"><span x-text="Math.round(R.jTransfo)"></span><span class="u">j/an</span></div><div class="ks" x-text="f(Math.round(R.jTransfo*7))+' h total'"></div></div>
+        </div>
         <div class="crow">
           <div class="cc"><div class="ct">CA vs charges</div>
-            <div class="lg"><span><span class="d" style="background:#34d399"></span>CA frais</span><span><span class="d" style="background:#ec4899"></span>CA transfo</span><span><span class="d" style="background:#3b82f6"></span>CA extra</span><span><span class="d" style="background:#ef4444"></span>Charges</span></div>
+            <div class="lg"><span><span class="d" style="background:#34d399"></span>CA frais</span><span><span class="d" style="background:#ec4899"></span>CA transfo</span><span><span class="d" style="background:#ef4444"></span>Charges fixes</span><span><span class="d" style="background:#f59e0b"></span>Saisonniers</span></div>
             <div class="cw"><canvas id="c1"></canvas></div>
           </div>
           <div class="cc"><div class="ct">Travail (h/an)</div>
@@ -103,22 +109,23 @@
 </div>
 <script>
 var SMIC=17116;
-var NK={"Nombre d'arbres":'trees',"Densit\u00e9":'density',"Rendement":'yield',"Prix frais moyen":'price',"Part transform\u00e9e":'transfo',"Multiplicateur transfo":'mult',"CA p\u00e9pini\u00e8re + events":'extra',"Charges fixes":'fixed',"Annuit\u00e9s emprunts":'loan',"MSA + cotisations":'msa',"Intrants + \u00e9nergie":'inputs',"Taille douce":'taille',"Observation / monitoring":'obs',"Sol, mulch, compost":'sol',"Traitements phyto plantes":'phyto',"Irrigation / fertigation":'irrig',"R\u00e9colte (multi-passes)":'recolte',"Tri, conditionnement":'tri',"Entretien serre / infra":'infra',"Commercial / livraisons":'comm',"Admin, compta, formation":'admin',"Transformation":'htransfo',"% r\u00e9colte d\u00e9l\u00e9gu\u00e9":'delrec',"% tri d\u00e9l\u00e9gu\u00e9":'deltri',"% transfo d\u00e9l\u00e9gu\u00e9":'deltransfo',"Co\u00fbt horaire charg\u00e9":'costsais'};
+var NK={"Nombre d'arbres":'trees',"Densit\u00e9":'density',"Rendement":'yield',"Part sous serre":'pctserre',"Prix frais moyen":'price',"Part transform\u00e9e":'transfo',"Multiplicateur transfo":'mult',"CA p\u00e9pini\u00e8re + events":'extra',"Charges fixes":'fixed',"Annuit\u00e9s emprunts":'loan',"MSA + cotisations":'msa',"Intrants + \u00e9nergie":'inputs',"Taille douce":'taille',"Observation / monitoring":'obs',"Sol, mulch, compost":'sol',"Traitements phyto plantes":'phyto',"Irrigation / fertigation":'irrig',"R\u00e9colte (multi-passes)":'recolte',"Tri, conditionnement":'tri',"Entretien serre / infra":'infra',"Commercial / livraisons":'comm',"Admin, compta, formation":'admin',"Transformation":'htransfo',"% r\u00e9colte d\u00e9l\u00e9gu\u00e9":'delrec',"% tri d\u00e9l\u00e9gu\u00e9":'deltri',"% transfo d\u00e9l\u00e9gu\u00e9":'deltransfo',"Co\u00fbt horaire charg\u00e9":'costsais'};
 
 function D(){return{
   ok:false,gOk:false,pR:[],c1:null,c2:null,
-  p:{trees:250,density:10,yield:20,price:18,transfo:30,mult:2.5,extra:8000,fixed:18000,loan:25000,msa:12000,inputs:6000,taille:0.8,obs:2,sol:0.6,phyto:0.3,irrig:0.4,recolte:1.2,tri:0.5,infra:0.4,comm:12,admin:6,htransfo:0.3,delrec:50,deltri:60,deltransfo:30,costsais:16},
-  R:{ca:0,prod:0,sf:0,rev:0,rs:0,hs:0,ha:0,ch:0,cs:0,pm:0,cm:0,rc:'',hc:'',vd:''},
+  p:{trees:100,density:10,yield:20,pctserre:100,price:18,transfo:30,mult:2.5,extra:0,fixed:18000,loan:25000,msa:12000,inputs:6000,taille:0.8,obs:2,sol:0.6,phyto:0.3,irrig:0.4,recolte:1.2,tri:0.5,infra:0.4,comm:12,admin:6,htransfo:0.3,delrec:50,deltri:60,deltransfo:30,costsais:16},
+  R:{ca:0,prod:0,sf:0,rev:0,rs:0,hs:0,ha:0,ch:0,cs:0,pm:0,cm:0,rc:'',hc:'',vd:'',sfTotal:0,sfPlein:0,treesPlein:0,jRecolte:0,jTri:0,jTransfo:0,chFix:0},
   sections:[
     {title:'Structure du verger',items:[
-      {key:'trees',label:"Nombre d'arbres",unit:'arbres',min:80,max:600,step:10},
+      {key:'trees',label:"Nombre d'arbres",unit:'arbres',min:80,max:1000,step:10},
       {key:'density',label:'Densit\u00e9',unit:'m\u00b2/arbre',min:6,max:16,step:1},
-      {key:'yield',label:'Rendement',unit:'kg/arbre/an',min:5,max:55,step:1}]},
+      {key:'yield',label:'Rendement',unit:'kg/arbre/an',min:5,max:55,step:1},
+      {key:'pctserre',label:'Part sous serre',unit:'%',min:0,max:100,step:5}]},
     {title:'Valorisation',items:[
       {key:'price',label:'Prix frais moyen',unit:'\u20ac/kg',min:10,max:45,step:1},
       {key:'transfo',label:'Part transform\u00e9e',unit:'% production',min:0,max:70,step:5},
       {key:'mult',label:'Multiplicateur transfo',unit:'\u00d7 prix frais',min:1.5,max:5,step:0.1},
-      {key:'extra',label:'CA p\u00e9pini\u00e8re + events',unit:'\u20ac/an',min:0,max:30000,step:1000}]},
+]},
     {title:'Charges annuelles',items:[
       {key:'fixed',label:'Assur. + eau + \u00e9lec + entretien + compta',unit:'\u20ac/an',min:8000,max:40000,step:1000},
       {key:'loan',label:'Annuit\u00e9s (serre + foncier + mat\u00e9riel)',unit:'\u20ac/an',min:0,max:50000,step:1000},
@@ -149,7 +156,7 @@ function D(){return{
   fv:function(v,step){if(step>=1&&step%1===0)return new Intl.NumberFormat('fr-FR').format(Math.round(v));if(step>=0.1)return v.toFixed(1);return v.toFixed(2)},
   async init(){
     try{grist.ready({requiredAccess:'full'});await this.lg();this.gOk=true}catch(e){console.log('Standalone',e)}
-    this.ic();this.go();this.ok=true;
+    this.go();this.ok=true;this.ic();
   },
   async lg(){
     var d=await grist.docApi.fetchTable('Parametres');
@@ -162,21 +169,24 @@ function D(){return{
   },
   go:function(){
     var p=this.p,R=this.R;R.prod=p.trees*p.yield;R.sf=p.trees*p.density;
+    var pSerre=p.pctserre/100;R.tresSerre=Math.round(p.trees*pSerre);R.sfSerre=R.tresSerre*p.density;
+    R.treesPlein=p.trees-R.tresSerre;R.sfPlein=R.treesPlein*p.density;R.sfTotal=R.sf;
     var pT=p.transfo/100,fKg=R.prod*(1-pT),tKg=R.prod*pT;
     var cF=fKg*p.price,cT=tKg*p.price*p.mult;R.ca=cF+cT+p.extra;
     R.pm=R.prod>0?R.ca/R.prod:0;R.cm=R.sf>0?R.ca/R.sf:0;
     var hT=p.trees*p.taille,hO=p.trees*p.obs,hP=p.trees*p.phyto;
-    var hS=p.trees*p.sol,hI=p.trees*p.irrig,hN=p.trees*p.infra;
+    var hS=p.trees*p.sol,hI=p.trees*p.irrig,hN=R.tresSerre*p.infra;
     var hR=p.trees*p.recolte,hTr=p.trees*p.tri,hTf=tKg*p.htransfo;
     var hC=p.comm*46,hA=p.admin*46;
     var dR=p.delrec/100,dT=p.deltri/100,dF=p.deltransfo/100;
     var sH=hR*dR+hTr*dT+hTf*dF;R.cs=sH*p.costsais;
     var eT=(hT+hO+hP+hS+hI+hN)+hR*(1-dR)+hTr*(1-dT)+hTf*(1-dF)+hC+hA;
     var pE=eT/2;R.hs=pE/46;R.ha=(hT+hO+hP+hS+hI+hN+hR+hTr)/Math.max(p.trees,1);
-    R.ch=p.fixed+p.loan+p.msa+p.inputs+R.cs;R.rev=(R.ca-R.ch)/2;R.rs=R.rev/SMIC;
+    R.jRecolte=hR/7;R.jTri=hTr/7;R.jTransfo=hTf/7;
+    R.chFix=p.fixed+p.loan+p.msa+p.inputs;R.ch=R.chFix+R.cs;R.rev=(R.ca-R.ch)/2;R.rs=R.rev/SMIC;
     R.rc=R.rev<SMIC?'cr':R.rev<SMIC*1.5?'co':'cg';
     R.hc=R.hs>50?'cr':R.hs>42?'co':'cg';
-    if(this.c1){this.c1.data.datasets[0].data=[cF,cT,p.extra,R.ch,R.cs];this.c1.update('none')}
+    if(this.c1){this.c1.data.datasets[0].data=[cF,cT,R.chFix,R.cs];this.c1.update('none')}
     if(this.c2){
       var g1=(hT+hO+hP)/2,g2=(hS+hI+hN)/2,g3=(hR*(1-dR)+hTr*(1-dT))/2,g4=(hTf*(1-dF))/2,g5=(hC+hA)/2;
       this.c2.data.datasets[0].data=[g1,g1,0];this.c2.data.datasets[1].data=[g2,g2,0];
@@ -188,19 +198,18 @@ function D(){return{
     else if(R.rs<1.5)L.push('<span class="co">Revenu 1-1,5 SMIC. Viable mais tendu.</span>');
     else L.push('<span class="cg">Revenu > 1,5 SMIC. OK.</span>');
     if(R.hs>48)L.push('<span class="cr">Surcharge '+Math.round(R.hs)+' h/sem.</span>');
-    if(R.sf>4000)L.push('Serre > 4 000 m\u00b2 : investissement lourd.');
+    if(R.sfSerre>4000)L.push('Serre > 4 000 m\u00b2 : investissement lourd.');
     if(sH>0)L.push('Saisonniers : '+this.f(sH)+' h = ~'+Math.ceil(sH/35)+' sem, '+this.fe(R.cs)+'.');
     var nd=((hT+hO+hP)/2+(hC+hA)/2)/46;
     L.push('Non d\u00e9l\u00e9gable : '+nd.toFixed(1)+' h/sem/expl ('+Math.round(nd*46*100/Math.max(pE,1))+'%).');
     R.vd=L.join(' &#183; ');
-    Object.keys(this.p).forEach(function(k){this.sy(k)}.bind(this));
   },
   ic:function(){
     var self=this;this.$nextTick(function(){
       var e1=document.getElementById('c1'),e2=document.getElementById('c2');if(!e1||!e2)return;
       var ax={grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b8fa3',font:{size:10}}};
       var axX={grid:{display:false},ticks:{color:'#8b8fa3',font:{size:9}}};
-      self.c1=new Chart(e1,{type:'bar',data:{labels:['CA frais','CA transfo','CA extra','Charges','Saisonniers'],datasets:[{data:[0,0,0,0,0],backgroundColor:['#34d399','#ec4899','#3b82f6','#ef4444','#f59e0b'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return Math.round(c.raw).toLocaleString('fr-FR')+' \u20ac'}}}},scales:{x:axX,y:Object.assign({},ax,{ticks:{color:'#8b8fa3',font:{size:10},callback:function(v){return Math.round(v/1000)+'k'}}})}}});
+      self.c1=new Chart(e1,{type:'bar',data:{labels:['CA frais','CA transfo','Charges fixes','Saisonniers'],datasets:[{data:[0,0,0,0],backgroundColor:['#34d399','#ec4899','#ef4444','#f59e0b'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return Math.round(c.raw).toLocaleString('fr-FR')+' \u20ac'}}}},scales:{x:axX,y:Object.assign({},ax,{ticks:{color:'#8b8fa3',font:{size:10},callback:function(v){return Math.round(v/1000)+'k'}}})}}});
       self.c2=new Chart(e2,{type:'bar',data:{labels:['Exploit. 1','Exploit. 2','Saisonniers'],datasets:[{label:'Soins',data:[0,0,0],backgroundColor:'#34d399',borderRadius:4},{label:'Sol+irrig',data:[0,0,0],backgroundColor:'#14b8a6',borderRadius:4},{label:'R\u00e9colte',data:[0,0,0],backgroundColor:'#f59e0b',borderRadius:4},{label:'Transfo',data:[0,0,0],backgroundColor:'#ec4899',borderRadius:4},{label:'Comm',data:[0,0,0],backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+Math.round(c.raw)+' h/an ('+Math.round(c.raw/46)+' h/sem)'}}}},scales:{x:Object.assign({stacked:true},axX),y:Object.assign({stacked:true},ax,{title:{display:true,text:'h/an',color:'#8b8fa3',font:{size:10}}})}}});
       self.go();
     });
