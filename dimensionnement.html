@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dimensionnement Verger Agrumes</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#232733;--border:#2e3344;--text:#e4e6ed;--text-dim:#8b8fa3;--accent:#6c63ff;--accent-light:#8b83ff;--green:#34d399;--green-dim:#059669;--orange:#f59e0b;--red:#ef4444;--gold:#fbbf24;--teal:#14b8a6;--pink:#ec4899;--blue:#3b82f6}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+    .header{background:linear-gradient(135deg,#1e2030,#252940);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+    .header h1{font-size:15px;font-weight:600}
+    .header .sub{font-size:11px;color:var(--text-dim);margin-left:4px}
+    .main{display:flex;flex:1;overflow:hidden;min-height:0}
+    .panel-left{width:420px;min-width:340px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);flex-shrink:0;overflow-y:auto}
+    .panel-right{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:16px 20px}
+    .stitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-dim);padding:12px 16px 6px;border-top:1px solid var(--border)}
+    .stitle:first-child{border-top:none}
+    .tag{font-size:9px;padding:1px 6px;border-radius:4px;margin-left:6px;text-transform:none;letter-spacing:0;font-weight:500}
+    .tag-b{background:rgba(59,130,246,.15);color:var(--blue)}
+    .tag-o{background:rgba(245,158,11,.15);color:var(--orange)}
+    .sl{padding:3px 16px;display:flex;align-items:center;gap:8px}
+    .sl-l{font-size:11px;color:var(--text-dim);min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sl-u{font-size:9px;color:#555a6e;min-width:66px;text-align:right}
+    .sl input[type=range]{width:120px;height:4px;-webkit-appearance:none;background:var(--bg);border-radius:2px;outline:none;flex-shrink:0}
+    .sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+    .sl-v{font-size:12px;font-weight:600;min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+    .kpi-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden;flex:1;min-width:130px}
+    .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+    .kpi.k1::before{background:linear-gradient(90deg,var(--accent),var(--accent-light))}
+    .kpi.k2::before{background:linear-gradient(90deg,var(--green-dim),var(--green))}
+    .kpi.k3::before{background:linear-gradient(90deg,var(--orange),var(--gold))}
+    .kpi.k4::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa)}
+    .kl{font-size:9px;text-transform:uppercase;color:var(--text-dim);letter-spacing:.5px;margin-bottom:4px}
+    .kv{font-size:20px;font-weight:700;letter-spacing:-.5px}
+    .kv .u{font-size:11px;font-weight:400;color:var(--text-dim);margin-left:2px}
+    .ks{font-size:10px;color:var(--text-dim);margin-top:2px}
+    .cg{color:var(--green)}.cr{color:var(--red)}.co{color:var(--orange)}
+    .crow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+    .cc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+    .ct{font-size:11px;font-weight:600;margin-bottom:8px}
+    .cw{position:relative;height:200px}
+    .lg{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--text-dim);margin-bottom:6px}
+    .lg span{display:flex;align-items:center;gap:3px}
+    .lg .d{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+    .vb{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:11px;line-height:1.7;color:var(--text-dim)}
+    .ld{display:flex;align-items:center;justify-content:center;padding:60px 20px;flex-direction:column;gap:12px}
+    .sp{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  </style>
+</head>
+<body>
+<div class="app" x-data="D()" x-init="init()">
+  <template x-if="!ok"><div class="ld"><div class="sp"></div><span style="font-size:12px;color:var(--text-dim)">Chargement...</span></div></template>
+  <template x-if="ok"><div style="display:flex;flex-direction:column;height:100vh">
+    <div class="header"><span style="font-size:20px">&#127819;</span><h1>Dimensionnement verger<span class="sub">&#183; 2 exploitants + saisonniers</span></h1></div>
+    <div class="main">
+      <div class="panel-left">
+        <template x-for="sec in sections"><div>
+          <div class="stitle" x-html="sec.title"></div>
+          <template x-for="s in sec.items"><div class="sl">
+            <span class="sl-l" x-text="s.label"></span>
+            <span class="sl-u" x-text="s.unit"></span>
+            <input type="range" :min="s.min" :max="s.max" :step="s.step" x-model.number="p[s.key]" @input="go()">
+            <span class="sl-v" x-text="fv(p[s.key],s.step)"></span>
+          </div></template>
+        </div></template>
+        <div style="height:20px"></div>
+      </div>
+      <div class="panel-right">
+        <div class="kpi-grid">
+          <div class="kpi k1"><div class="kl">CA total</div><div class="kv" x-text="fe(R.ca)"></div><div class="ks" x-text="f(R.prod)+' kg'"></div></div>
+          <div class="kpi k2"><div class="kl">Revenu / exploitant</div><div class="kv" :class="R.rc" x-text="fe(R.rev)"></div><div class="ks" x-text="R.rs.toFixed(1)+'&times; SMIC'"></div></div>
+          <div class="kpi k3"><div class="kl">Heures / exploitant</div><div class="kv" :class="R.hc"><span x-text="Math.round(R.hs)"></span><span class="u">h/sem</span></div><div class="ks">46 semaines/an</div></div>
+          <div class="kpi k4"><div class="kl">Serre Venlo</div><div class="kv"><span x-text="f(R.sf)"></span><span class="u">m&#178;</span></div><div class="ks" x-text="f(p.trees)+' arbres'"></div></div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kl">Charges (sais. inclus)</div><div class="kv" x-text="fe(R.ch)"></div><div class="ks" x-text="'dont sais. '+fe(R.cs)"></div></div>
+          <div class="kpi"><div class="kl">Prix moyen pond&#233;r&#233;</div><div class="kv"><span x-text="R.pm.toFixed(1)"></span><span class="u">&#8364;/kg</span></div><div class="ks">frais + transfo</div></div>
+          <div class="kpi"><div class="kl">Productivit&#233;</div><div class="kv"><span x-text="Math.round(R.cm)"></span><span class="u">&#8364;/m&#178;</span></div><div class="ks" x-text="fe(Math.round(R.ca/Math.max(p.trees,1)))+'/arbre'"></div></div>
+          <div class="kpi"><div class="kl">Charge / arbre</div><div class="kv"><span x-text="R.ha.toFixed(1)"></span><span class="u">h/an</span></div><div class="ks">production seule</div></div>
+        </div>
+        <div class="crow">
+          <div class="cc"><div class="ct">CA vs charges</div>
+            <div class="lg"><span><span class="d" style="background:#34d399"></span>CA frais</span><span><span class="d" style="background:#ec4899"></span>CA transfo</span><span><span class="d" style="background:#3b82f6"></span>CA extra</span><span><span class="d" style="background:#ef4444"></span>Charges</span></div>
+            <div class="cw"><canvas id="c1"></canvas></div>
+          </div>
+          <div class="cc"><div class="ct">Travail (h/an)</div>
+            <div class="lg"><span><span class="d" style="background:#34d399"></span>Soins</span><span><span class="d" style="background:#14b8a6"></span>Sol+irrig</span><span><span class="d" style="background:#f59e0b"></span>R&#233;colte</span><span><span class="d" style="background:#ec4899"></span>Transfo</span><span><span class="d" style="background:#3b82f6"></span>Comm</span></div>
+            <div class="cw"><canvas id="c2"></canvas></div>
+          </div>
+        </div>
+        <div class="vb" x-html="R.vd"></div>
+      </div>
+    </div>
+  </div></template>
+</div>
+<script>
+var SMIC=17116;
+var NK={"Nombre d'arbres":'trees',"Densit\u00e9":'density',"Rendement":'yield',"Prix frais moyen":'price',"Part transform\u00e9e":'transfo',"Multiplicateur transfo":'mult',"CA p\u00e9pini\u00e8re + events":'extra',"Charges fixes":'fixed',"Annuit\u00e9s emprunts":'loan',"MSA + cotisations":'msa',"Intrants + \u00e9nergie":'inputs',"Taille douce":'taille',"Observation / monitoring":'obs',"Sol, mulch, compost":'sol',"Traitements phyto plantes":'phyto',"Irrigation / fertigation":'irrig',"R\u00e9colte (multi-passes)":'recolte',"Tri, conditionnement":'tri',"Entretien serre / infra":'infra',"Commercial / livraisons":'comm',"Admin, compta, formation":'admin',"Transformation":'htransfo',"% r\u00e9colte d\u00e9l\u00e9gu\u00e9":'delrec',"% tri d\u00e9l\u00e9gu\u00e9":'deltri',"% transfo d\u00e9l\u00e9gu\u00e9":'deltransfo',"Co\u00fbt horaire charg\u00e9":'costsais'};
+
+function D(){return{
+  ok:false,gOk:false,pR:[],c1:null,c2:null,
+  p:{trees:250,density:10,yield:20,price:18,transfo:30,mult:2.5,extra:8000,fixed:18000,loan:25000,msa:12000,inputs:6000,taille:0.8,obs:2,sol:0.6,phyto:0.3,irrig:0.4,recolte:1.2,tri:0.5,infra:0.4,comm:12,admin:6,htransfo:0.3,delrec:50,deltri:60,deltransfo:30,costsais:16},
+  R:{ca:0,prod:0,sf:0,rev:0,rs:0,hs:0,ha:0,ch:0,cs:0,pm:0,cm:0,rc:'',hc:'',vd:''},
+  sections:[
+    {title:'Structure du verger',items:[
+      {key:'trees',label:"Nombre d'arbres",unit:'arbres',min:80,max:600,step:10},
+      {key:'density',label:'Densit\u00e9',unit:'m\u00b2/arbre',min:6,max:16,step:1},
+      {key:'yield',label:'Rendement',unit:'kg/arbre/an',min:5,max:55,step:1}]},
+    {title:'Valorisation',items:[
+      {key:'price',label:'Prix frais moyen',unit:'\u20ac/kg',min:10,max:45,step:1},
+      {key:'transfo',label:'Part transform\u00e9e',unit:'% production',min:0,max:70,step:5},
+      {key:'mult',label:'Multiplicateur transfo',unit:'\u00d7 prix frais',min:1.5,max:5,step:0.1},
+      {key:'extra',label:'CA p\u00e9pini\u00e8re + events',unit:'\u20ac/an',min:0,max:30000,step:1000}]},
+    {title:'Charges annuelles',items:[
+      {key:'fixed',label:'Assur. + eau + \u00e9lec + entretien + compta',unit:'\u20ac/an',min:8000,max:40000,step:1000},
+      {key:'loan',label:'Annuit\u00e9s (serre + foncier + mat\u00e9riel)',unit:'\u20ac/an',min:0,max:50000,step:1000},
+      {key:'msa',label:'MSA + cotisations (2 chefs)',unit:'\u20ac/an',min:5000,max:30000,step:1000},
+      {key:'inputs',label:'Intrants + \u00e9nergie + emballages',unit:'\u20ac/an',min:2000,max:20000,step:500}]},
+    {title:'Travail exploitant <span class="tag tag-b">non d\u00e9l\u00e9gable</span>',items:[
+      {key:'taille',label:'Taille douce',unit:'h/arbre/an',min:0.3,max:2,step:0.1},
+      {key:'obs',label:'Observation / monitoring phyto',unit:'h/arbre/an',min:0.5,max:4,step:0.1},
+      {key:'sol',label:'Sol, mulch, compost',unit:'h/arbre/an',min:0.2,max:2,step:0.1},
+      {key:'phyto',label:'Traitements plantes (d\u00e9coctions)',unit:'h/arbre/an',min:0.1,max:1,step:0.05},
+      {key:'irrig',label:'Irrigation / fertigation',unit:'h/arbre/an',min:0.1,max:1.5,step:0.1}]},
+    {title:'Travail d\u00e9l\u00e9gable <span class="tag tag-o">saisonniers</span>',items:[
+      {key:'recolte',label:'R\u00e9colte (4-6 passes oct-avr)',unit:'h/arbre/an',min:0.3,max:3,step:0.1},
+      {key:'tri',label:'Tri, conditionnement gastro',unit:'h/arbre/an',min:0.1,max:1.5,step:0.1},
+      {key:'infra',label:'Entretien serre / infra',unit:'h/arbre/an',min:0.1,max:1.5,step:0.1}]},
+    {title:'Temps fixe hebdomadaire',items:[
+      {key:'comm',label:'Commercial / livraisons resto',unit:'h/semaine',min:4,max:25,step:1},
+      {key:'admin',label:'Admin, compta, formation',unit:'h/semaine',min:2,max:15,step:1},
+      {key:'htransfo',label:'Transformation',unit:'h/kg transfo',min:0.1,max:1,step:0.05}]},
+    {title:'Saisonniers',items:[
+      {key:'delrec',label:'R\u00e9colte d\u00e9l\u00e9gu\u00e9e',unit:'%',min:0,max:100,step:5},
+      {key:'deltri',label:'Tri d\u00e9l\u00e9gu\u00e9',unit:'%',min:0,max:100,step:5},
+      {key:'deltransfo',label:'Transfo d\u00e9l\u00e9gu\u00e9e',unit:'%',min:0,max:80,step:5},
+      {key:'costsais',label:'Co\u00fbt horaire charg\u00e9',unit:'\u20ac/h',min:12,max:22,step:0.5}]}
+  ],
+  f:function(n,d){d=d||0;return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n)},
+  fe:function(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)},
+  fv:function(v,step){if(step>=1&&step%1===0)return new Intl.NumberFormat('fr-FR').format(Math.round(v));if(step>=0.1)return v.toFixed(1);return v.toFixed(2)},
+  async init(){
+    try{grist.ready({requiredAccess:'full'});await this.lg();this.gOk=true}catch(e){console.log('Standalone',e)}
+    this.ic();this.go();this.ok=true;
+  },
+  async lg(){
+    var d=await grist.docApi.fetchTable('Parametres');
+    this.pR=[];
+    for(var i=0;i<d.id.length;i++){var k=NK[d.parametre[i]];if(k&&d.valeur[i]!=null){this.p[k]=d.valeur[i];this.pR.push({gid:d.id[i],key:k})}}
+  },
+  sy:function(key){
+    if(!this.gOk)return;var r=this.pR.find(function(x){return x.key===key});if(!r)return;
+    try{grist.docApi.applyUserActions([['UpdateRecord','Parametres',r.gid,{valeur:this.p[key]}]])}catch(e){}
+  },
+  go:function(){
+    var p=this.p,R=this.R;R.prod=p.trees*p.yield;R.sf=p.trees*p.density;
+    var pT=p.transfo/100,fKg=R.prod*(1-pT),tKg=R.prod*pT;
+    var cF=fKg*p.price,cT=tKg*p.price*p.mult;R.ca=cF+cT+p.extra;
+    R.pm=R.prod>0?R.ca/R.prod:0;R.cm=R.sf>0?R.ca/R.sf:0;
+    var hT=p.trees*p.taille,hO=p.trees*p.obs,hP=p.trees*p.phyto;
+    var hS=p.trees*p.sol,hI=p.trees*p.irrig,hN=p.trees*p.infra;
+    var hR=p.trees*p.recolte,hTr=p.trees*p.tri,hTf=tKg*p.htransfo;
+    var hC=p.comm*46,hA=p.admin*46;
+    var dR=p.delrec/100,dT=p.deltri/100,dF=p.deltransfo/100;
+    var sH=hR*dR+hTr*dT+hTf*dF;R.cs=sH*p.costsais;
+    var eT=(hT+hO+hP+hS+hI+hN)+hR*(1-dR)+hTr*(1-dT)+hTf*(1-dF)+hC+hA;
+    var pE=eT/2;R.hs=pE/46;R.ha=(hT+hO+hP+hS+hI+hN+hR+hTr)/Math.max(p.trees,1);
+    R.ch=p.fixed+p.loan+p.msa+p.inputs+R.cs;R.rev=(R.ca-R.ch)/2;R.rs=R.rev/SMIC;
+    R.rc=R.rev<SMIC?'cr':R.rev<SMIC*1.5?'co':'cg';
+    R.hc=R.hs>50?'cr':R.hs>42?'co':'cg';
+    if(this.c1){this.c1.data.datasets[0].data=[cF,cT,p.extra,R.ch,R.cs];this.c1.update('none')}
+    if(this.c2){
+      var g1=(hT+hO+hP)/2,g2=(hS+hI+hN)/2,g3=(hR*(1-dR)+hTr*(1-dT))/2,g4=(hTf*(1-dF))/2,g5=(hC+hA)/2;
+      this.c2.data.datasets[0].data=[g1,g1,0];this.c2.data.datasets[1].data=[g2,g2,0];
+      this.c2.data.datasets[2].data=[g3,g3,hR*dR+hTr*dT];this.c2.data.datasets[3].data=[g4,g4,hTf*dF];
+      this.c2.data.datasets[4].data=[g5,g5,0];this.c2.update('none');
+    }
+    var L=[];
+    if(R.rs<1)L.push('<span class="cr">Revenu < 1 SMIC.</span>');
+    else if(R.rs<1.5)L.push('<span class="co">Revenu 1-1,5 SMIC. Viable mais tendu.</span>');
+    else L.push('<span class="cg">Revenu > 1,5 SMIC. OK.</span>');
+    if(R.hs>48)L.push('<span class="cr">Surcharge '+Math.round(R.hs)+' h/sem.</span>');
+    if(R.sf>4000)L.push('Serre > 4 000 m\u00b2 : investissement lourd.');
+    if(sH>0)L.push('Saisonniers : '+this.f(sH)+' h = ~'+Math.ceil(sH/35)+' sem, '+this.fe(R.cs)+'.');
+    var nd=((hT+hO+hP)/2+(hC+hA)/2)/46;
+    L.push('Non d\u00e9l\u00e9gable : '+nd.toFixed(1)+' h/sem/expl ('+Math.round(nd*46*100/Math.max(pE,1))+'%).');
+    R.vd=L.join(' &#183; ');
+    Object.keys(this.p).forEach(function(k){this.sy(k)}.bind(this));
+  },
+  ic:function(){
+    var self=this;this.$nextTick(function(){
+      var e1=document.getElementById('c1'),e2=document.getElementById('c2');if(!e1||!e2)return;
+      var ax={grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b8fa3',font:{size:10}}};
+      var axX={grid:{display:false},ticks:{color:'#8b8fa3',font:{size:9}}};
+      self.c1=new Chart(e1,{type:'bar',data:{labels:['CA frais','CA transfo','CA extra','Charges','Saisonniers'],datasets:[{data:[0,0,0,0,0],backgroundColor:['#34d399','#ec4899','#3b82f6','#ef4444','#f59e0b'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return Math.round(c.raw).toLocaleString('fr-FR')+' \u20ac'}}}},scales:{x:axX,y:Object.assign({},ax,{ticks:{color:'#8b8fa3',font:{size:10},callback:function(v){return Math.round(v/1000)+'k'}}})}}});
+      self.c2=new Chart(e2,{type:'bar',data:{labels:['Exploit. 1','Exploit. 2','Saisonniers'],datasets:[{label:'Soins',data:[0,0,0],backgroundColor:'#34d399',borderRadius:4},{label:'Sol+irrig',data:[0,0,0],backgroundColor:'#14b8a6',borderRadius:4},{label:'R\u00e9colte',data:[0,0,0],backgroundColor:'#f59e0b',borderRadius:4},{label:'Transfo',data:[0,0,0],backgroundColor:'#ec4899',borderRadius:4},{label:'Comm',data:[0,0,0],backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+Math.round(c.raw)+' h/an ('+Math.round(c.raw/46)+' h/sem)'}}}},scales:{x:Object.assign({stacked:true},axX),y:Object.assign({stacked:true},ax,{title:{display:true,text:'h/an',color:'#8b8fa3',font:{size:10}}})}}});
+      self.go();
+    });
+  }
+}}
+</script>
+</body>
+</html>
